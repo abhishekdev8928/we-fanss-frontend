@@ -10,7 +10,7 @@ const RichTextEditor = ({
   const isInitializing = useRef(false);
 
   useEffect(() => {
-    // ✅ Prevent double initialization
+    
     if (isInitializing.current) return;
     
     if (!window.CKEDITOR) {

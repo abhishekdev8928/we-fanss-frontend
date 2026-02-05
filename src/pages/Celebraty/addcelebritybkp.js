@@ -1,6 +1,4 @@
-
-
-// AddCelebrityForm.jsx - Fixed Tab Navigation & Death Fields
+// AddCelebrityForm.jsx - Updated with lifeStatus & Required Field Indicators
 import React, { useState, useEffect } from "react";
 import RichTextEditor from "../../components/editor/RichTextEditor";
 import {
@@ -12,6 +10,7 @@ import {
   Label,
   Input,
   Container,
+  Progress,
 } from "reactstrap";
 import Breadcrumbs from "../../components/Common/Breadcrumb";
 import Select from "react-select";
@@ -25,6 +24,8 @@ import {
   getSocialLinksOptions,
 } from "../../api/celebratyApi";
 import { useRoleName } from "../../config/store/authStore";
+import { createCelebritySchema } from "../../schemas/celebrity.schema";
+import { validateForm, formatCelebrityDataForValidation } from "../../utils/validateForm";
 
 const AddCelebrityForm = () => {
   const knownForRegionOptions = [
@@ -48,14 +49,11 @@ const AddCelebrityForm = () => {
   ]);
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [completedSteps, setCompletedSteps] = useState([]); // Track validated steps
-  
-  // Dynamic total steps based on admin access
-  const totalSteps = isAdmin ? 5 : 4;
+  const totalSteps = 5;
 
   const stepTitles = {
     1: "Basic Information",
-    2: "Professional Details & Social Links", 
+    2: "Professional Details", 
     3: "Family & Relationships",
     4: "Gallery & Images",
     5: "SEO & Admin"
@@ -76,7 +74,7 @@ const AddCelebrityForm = () => {
     slug: "",
     shortinfo: "",
     biography: "",
-    status: "In Review",
+    status: "Draft",
     previewImage: "",
 
     dob: "",
@@ -194,91 +192,14 @@ const AddCelebrityForm = () => {
     }
   };
 
-  // Validate current step
-  const validateStep = (step) => {
-    const newErrors = {};
-
-    if (step === 1) {
-      if (!formData.name || formData.name.trim() === "") {
-        newErrors.name = "Please enter celebrity name";
-      } else if (formData.name.trim().length < 2) {
-        newErrors.name = "Name should be at least 2 characters";
-      }
-
-      if (!formData.slug || formData.slug.trim() === "") {
-        newErrors.slug = "Slug is required";
-      }
-
-      if (!formData.dob) {
-        newErrors.dob = "Please select date of birth";
-      } else {
-        const dobDate = new Date(formData.dob);
-        const today = new Date();
-        if (dobDate > today) {
-          newErrors.dob = "Date of birth cannot be in the future";
-        }
-      }
-
-      if (!formData.gender) {
-        newErrors.gender = "Please select gender";
-      }
-
-      if (!formData.shortinfo || formData.shortinfo.trim() === "") {
-        newErrors.shortinfo = "Please write a short introduction";
-      } else if (formData.shortinfo.trim().length < 10) {
-        newErrors.shortinfo = "Short intro should be at least 10 characters";
-      } else if (formData.shortinfo.trim().length > 500) {
-        newErrors.shortinfo = "Short intro should not exceed 500 characters";
-      }
-
-      if (!formData.biography || formData.biography.trim() === "") {
-        newErrors.biography = "Please write a biography";
-      } else if (formData.biography.trim().length < 50) {
-        newErrors.biography = "Biography should be at least 50 characters";
-      }
-
-      if (!formData.isAlive && formData.dateOfDeath) {
-        const deathDate = new Date(formData.dateOfDeath);
-        const dobDate = new Date(formData.dob);
-        const today = new Date();
-
-        if (deathDate > today) {
-          newErrors.dateOfDeath = "Date of death cannot be in the future";
-        } else if (deathDate < dobDate) {
-          newErrors.dateOfDeath = "Date of death cannot be before date of birth";
-        }
-      }
-    }
-
-    if (step === 2) {
-      if (!formData.professions || formData.professions.length === 0) {
-        newErrors.professions = "Please select at least one profession";
-      }
-
-      formData.socialLinks.forEach((link, index) => {
-        if (link.url && link.url.trim() !== "") {
-          const urlPattern = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9_-]+(\.[a-z]{2,})(\/.*)?$/;
-          if (!urlPattern.test(link.url.trim())) {
-            newErrors[`socialLink_${index}`] = "Please enter a valid URL";
-          }
-        }
-      });
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const isValidSocialUrl = (url) => {
+    if (!url || url.trim() === "") return true;
+    const pattern = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9_-]+(\.[a-z]{2,})(\/.*)?$/;
+    return pattern.test(url.trim());
   };
 
   const handleInput = (e) => {
     const { name, value, type, checked } = e.target;
-
-    if (errors[name]) {
-      setErrors((prev) => {
-        const updated = { ...prev };
-        delete updated[name];
-        return updated;
-      });
-    }
 
     if (name === "name") {
       const generatedSlug = value
@@ -345,56 +266,9 @@ const AddCelebrityForm = () => {
     }));
   };
 
-  // ✅ NEW: Handle tab click navigation
-  const handleTabClick = (targetStep) => {
-    // Allow navigation to current step or any completed step
-    if (targetStep === currentStep || completedSteps.includes(targetStep)) {
-      setCurrentStep(targetStep);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    // For forward navigation, validate all steps between current and target
-    if (targetStep > currentStep) {
-      // Validate all steps from current to target-1
-      let allValid = true;
-      for (let step = currentStep; step < targetStep; step++) {
-        if (step === 1 || step === 2) {
-          if (!validateStep(step)) {
-            allValid = false;
-            toast.error(`Please complete Step ${step}: ${stepTitles[step]} before proceeding`);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-            return;
-          }
-        }
-        // Mark step as completed
-        if (!completedSteps.includes(step)) {
-          setCompletedSteps((prev) => [...prev, step]);
-        }
-      }
-
-      if (allValid) {
-        setCurrentStep(targetStep);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    }
-  };
+ 
 
   const handleNextStep = () => {
-    // Validate ONLY steps 1 and 2
-    if (currentStep === 1 || currentStep === 2) {
-      if (!validateStep(currentStep)) {
-        toast.error("Please fix the errors before proceeding");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-    }
-
-    // Mark current step as completed
-    if (!completedSteps.includes(currentStep)) {
-      setCompletedSteps((prev) => [...prev, currentStep]);
-    }
-
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -411,25 +285,7 @@ const AddCelebrityForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate all required steps
-    const step1Valid = validateStep(1);
-    const step2Valid = validateStep(2);
-
-    if (!step1Valid || !step2Valid) {
-      toast.error("Please fix all errors before submitting");
-      if (!step1Valid) {
-        setCurrentStep(1);
-      } else if (!step2Valid) {
-        setCurrentStep(2);
-      }
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    // Mark all steps as completed
-    const allStepsUpToCurrent = Array.from({ length: currentStep }, (_, i) => i + 1);
-    setCompletedSteps(allStepsUpToCurrent);
-
+   
     try {
       const formDataToSend = new FormData();
 
@@ -451,32 +307,18 @@ const AddCelebrityForm = () => {
         formDataToSend.append("personalDetails[religion]", formData.religion.trim());
       }
 
-      // ✅ FIXED: Always send lifeStatus fields
       formDataToSend.append("lifeStatus[isAlive]", formData.isAlive.toString());
-      
-      // ✅ FIXED: Send death fields when isAlive is false
       if (!formData.isAlive) {
-        if (formData.dateOfDeath && formData.dateOfDeath.trim() !== "") {
+        if (formData.dateOfDeath) {
           formDataToSend.append("lifeStatus[dateOfDeath]", formData.dateOfDeath);
-          console.log("✅ Death Date Added:", formData.dateOfDeath);
         }
-        if (formData.placeOfDeath && formData.placeOfDeath.trim() !== "") {
+        if (formData.placeOfDeath) {
           formDataToSend.append("lifeStatus[placeOfDeath]", formData.placeOfDeath.trim());
-          console.log("✅ Place of Death Added:", formData.placeOfDeath);
         }
-        if (formData.causeOfDeath && formData.causeOfDeath.trim() !== "") {
+        if (formData.causeOfDeath) {
           formDataToSend.append("lifeStatus[causeOfDeath]", formData.causeOfDeath.trim());
-          console.log("✅ Cause of Death Added:", formData.causeOfDeath);
         }
       }
-
-      // Debug log to verify death fields
-      console.log("=== Death Related Fields Debug ===");
-      console.log("isAlive:", formData.isAlive);
-      console.log("dateOfDeath:", formData.dateOfDeath);
-      console.log("placeOfDeath:", formData.placeOfDeath);
-      console.log("causeOfDeath:", formData.causeOfDeath);
-      console.log("================================");
 
       if (formData.fatherName) {
         formDataToSend.append("familyRelationships[father][name]", formData.fatherName.trim());
@@ -498,12 +340,9 @@ const AddCelebrityForm = () => {
       }
 
       formDataToSend.append("professionalIdentity[professions]", JSON.stringify(formData.professions));
-      
-      const primaryProf = formData.primaryProfession || formData.professions[0];
-      if (primaryProf) {
-        formDataToSend.append("professionalIdentity[primaryProfession]", primaryProf);
+      if (formData.primaryProfession) {
+        formDataToSend.append("professionalIdentity[primaryProfession]", formData.primaryProfession);
       }
-      
       if (formData.languages.length > 0) {
         formDataToSend.append("professionalIdentity[languages]", JSON.stringify(formData.languages));
       }
@@ -544,25 +383,23 @@ const AddCelebrityForm = () => {
         formDataToSend.append("socialLinks", JSON.stringify(validSocialLinks));
       }
 
-      if (isAdmin) {
-        if (formData.tags.length > 0) {
-          formDataToSend.append("seoMetadata[tags]", JSON.stringify(formData.tags));
-        }
-        if (formData.seoMetaTitle) {
-          formDataToSend.append("seoMetadata[seoMetaTitle]", formData.seoMetaTitle.trim());
-        }
-        if (formData.seoMetaDescription) {
-          formDataToSend.append("seoMetadata[seoMetaDescription]", formData.seoMetaDescription.trim());
-        }
-        if (formData.seoKeywords.length > 0) {
-          formDataToSend.append("seoMetadata[seoKeywords]", JSON.stringify(formData.seoKeywords));
-        }
+      if (formData.tags.length > 0) {
+        formDataToSend.append("seoMetadata[tags]", JSON.stringify(formData.tags));
+      }
+      if (formData.seoMetaTitle) {
+        formDataToSend.append("seoMetadata[seoMetaTitle]", formData.seoMetaTitle.trim());
+      }
+      if (formData.seoMetaDescription) {
+        formDataToSend.append("seoMetadata[seoMetaDescription]", formData.seoMetaDescription.trim());
+      }
+      if (formData.seoKeywords.length > 0) {
+        formDataToSend.append("seoMetadata[seoKeywords]", JSON.stringify(formData.seoKeywords));
+      }
 
-        formDataToSend.append("adminControls[isFeatured]", formData.isFeatured.toString());
-        formDataToSend.append("adminControls[verificationStatus]", formData.verificationStatus);
-        if (formData.internalNotes) {
-          formDataToSend.append("adminControls[internalNotes]", formData.internalNotes.trim());
-        }
+      formDataToSend.append("adminControls[isFeatured]", formData.isFeatured.toString());
+      formDataToSend.append("adminControls[verificationStatus]", formData.verificationStatus);
+      if (formData.internalNotes) {
+        formDataToSend.append("adminControls[internalNotes]", formData.internalNotes.trim());
       }
 
       if (selectedFile) {
@@ -574,13 +411,6 @@ const AddCelebrityForm = () => {
           formDataToSend.append("gallery", file);
         });
       }
-
-      // ✅ Log all FormData entries for debugging
-      console.log("=== FormData Entries ===");
-      for (let pair of formDataToSend.entries()) {
-        console.log(pair[0], ':', pair[1]);
-      }
-      console.log("========================");
 
       const result = await addCelebraty(formDataToSend);
 
@@ -615,220 +445,22 @@ const AddCelebrityForm = () => {
         <Row className="mb-4">
           <Col xl="12">
             <Card>
-              <CardBody className="p-0">
-                {/* ✅ Tab Navigation with Click Handlers */}
-                <div className="d-flex border-bottom">
-                  {/* Tab 1 */}
-                  <div
-                    onClick={() => handleTabClick(1)}
-                    style={{
-                      flex: 1,
-                      padding: "16px 24px",
-                      cursor: "pointer",
-                      backgroundColor: currentStep === 1 ? "#f8f9fa" : "transparent",
-                      borderBottom: currentStep === 1 ? "3px solid #556ee6" : "3px solid transparent",
-                      transition: "all 0.3s ease",
-                      opacity: 1,
-                    }}
-                  >
-                    <div className="d-flex align-items-center justify-content-center">
-                      <div
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "50%",
-                          backgroundColor: completedSteps.includes(1) ? "#4285F4" : "#e9ecef",
-                          color: completedSteps.includes(1) ? "#ffffff" : "#6c757d",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "14px",
-                          fontWeight: "bold",
-                          marginRight: "10px",
-                        }}
-                      >
-                        {completedSteps.includes(1) ? "✓" : "1"}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: currentStep === 1 ? "600" : "normal", fontSize: "14px" }}>
-                          Basic Info
-                        </div>
-                        <small className="text-muted d-none d-md-block" style={{ fontSize: "11px" }}>
-                          Name, DOB, Biography
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tab 2 */}
-                  <div
-                    onClick={() => handleTabClick(2)}
-                    style={{
-                      flex: 1,
-                      padding: "16px 24px",
-                      cursor: completedSteps.includes(2) || currentStep >= 2 ? "pointer" : "not-allowed",
-                      backgroundColor: currentStep === 2 ? "#f8f9fa" : "transparent",
-                      borderBottom: currentStep === 2 ? "3px solid #556ee6" : "3px solid transparent",
-                      transition: "all 0.3s ease",
-                      opacity: completedSteps.includes(2) || currentStep >= 2 ? 1 : 0.5,
-                    }}
-                  >
-                    <div className="d-flex align-items-center justify-content-center">
-                      <div
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "50%",
-                          backgroundColor: completedSteps.includes(2) ? "#4285F4" : "#e9ecef",
-                          color: completedSteps.includes(2) ? "#ffffff" : "#6c757d",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "14px",
-                          fontWeight: "bold",
-                          marginRight: "10px",
-                        }}
-                      >
-                        {completedSteps.includes(2) ? "✓" : "2"}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: currentStep === 2 ? "600" : "normal", fontSize: "14px" }}>
-                          Professional
-                        </div>
-                        <small className="text-muted d-none d-md-block" style={{ fontSize: "11px" }}>
-                          Career & Social Links
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tab 3 */}
-                  <div
-                    onClick={() => handleTabClick(3)}
-                    style={{
-                      flex: 1,
-                      padding: "16px 24px",
-                      cursor: completedSteps.includes(3) || currentStep >= 3 ? "pointer" : "not-allowed",
-                      backgroundColor: currentStep === 3 ? "#f8f9fa" : "transparent",
-                      borderBottom: currentStep === 3 ? "3px solid #556ee6" : "3px solid transparent",
-                      transition: "all 0.3s ease",
-                      opacity: completedSteps.includes(3) || currentStep >= 3 ? 1 : 0.5,
-                    }}
-                  >
-                    <div className="d-flex align-items-center justify-content-center">
-                      <div
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "50%",
-                          backgroundColor: completedSteps.includes(3) ? "#4285F4" : "#e9ecef",
-                          color: completedSteps.includes(3) ? "#ffffff" : "#6c757d",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "14px",
-                          fontWeight: "bold",
-                          marginRight: "10px",
-                        }}
-                      >
-                        {completedSteps.includes(3) ? "✓" : "3"}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: currentStep === 3 ? "600" : "normal", fontSize: "14px" }}>
-                          Family
-                        </div>
-                        <small className="text-muted d-none d-md-block" style={{ fontSize: "11px" }}>
-                          Relations & Spouse
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tab 4 */}
-                  <div
-                    onClick={() => handleTabClick(4)}
-                    style={{
-                      flex: 1,
-                      padding: "16px 24px",
-                      cursor: completedSteps.includes(4) || currentStep >= 4 ? "pointer" : "not-allowed",
-                      backgroundColor: currentStep === 4 ? "#f8f9fa" : "transparent",
-                      borderBottom: currentStep === 4 ? "3px solid #556ee6" : "3px solid transparent",
-                      transition: "all 0.3s ease",
-                      opacity: completedSteps.includes(4) || currentStep >= 4 ? 1 : 0.5,
-                    }}
-                  >
-                    <div className="d-flex align-items-center justify-content-center">
-                      <div
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "50%",
-                          backgroundColor: completedSteps.includes(4) ? "#4285F4" : "#e9ecef",
-                          color: completedSteps.includes(4) ? "#ffffff" : "#6c757d",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "14px",
-                          fontWeight: "bold",
-                          marginRight: "10px",
-                        }}
-                      >
-                        {completedSteps.includes(4) ? "✓" : "4"}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: currentStep === 4 ? "600" : "normal", fontSize: "14px" }}>
-                          Gallery
-                        </div>
-                        <small className="text-muted d-none d-md-block" style={{ fontSize: "11px" }}>
-                          Images & Media
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tab 5 - Admin Only */}
-                  {isAdmin && (
-                    <div
-                      onClick={() => handleTabClick(5)}
-                      style={{
-                        flex: 1,
-                        padding: "16px 24px",
-                        cursor: completedSteps.includes(5) || currentStep >= 5 ? "pointer" : "not-allowed",
-                        backgroundColor: currentStep === 5 ? "#f8f9fa" : "transparent",
-                        borderBottom: currentStep === 5 ? "3px solid #556ee6" : "3px solid transparent",
-                        transition: "all 0.3s ease",
-                        opacity: completedSteps.includes(5) || currentStep >= 5 ? 1 : 0.5,
-                      }}
-                    >
-                      <div className="d-flex align-items-center justify-content-center">
-                        <div
-                          style={{
-                            width: "28px",
-                            height: "28px",
-                            borderRadius: "50%",
-                            backgroundColor: completedSteps.includes(5) ? "#4285F4" : "#e9ecef",
-                            color: completedSteps.includes(5) ? "#ffffff" : "#6c757d",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "14px",
-                            fontWeight: "bold",
-                            marginRight: "10px",
-                          }}
-                        >
-                          {completedSteps.includes(5) ? "✓" : "5"}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: currentStep === 5 ? "600" : "normal", fontSize: "14px" }}>
-                            SEO & Admin
-                          </div>
-                          <small className="text-muted d-none d-md-block" style={{ fontSize: "11px" }}>
-                            Meta & Controls
-                          </small>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+              <CardBody>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0">
+                    Step {currentStep} of {totalSteps}: {stepTitles[currentStep]}
+                  </h5>
+                  <span className="badge bg-primary">
+                    {Math.round((currentStep / totalSteps) * 100)}% Complete
+                  </span>
+                </div>
+                <Progress value={(currentStep / totalSteps) * 100} className="mb-2" />
+                <div className="d-flex justify-content-between text-muted small">
+                  <span>Basic</span>
+                  <span>Professional</span>
+                  <span>Family</span>
+                  <span>Gallery</span>
+                  <span>SEO</span>
                 </div>
               </CardBody>
             </Card>
@@ -839,7 +471,7 @@ const AddCelebrityForm = () => {
           <Col xl="12">
             <Card>
               <CardBody>
-                <div>
+                <form onSubmit={handleSubmit}>
                   {currentStep === 1 && (
                     <Row>
                       <Col md="12" className="mb-3">
@@ -856,10 +488,10 @@ const AddCelebrityForm = () => {
                           onChange={handleInput}
                           placeholder="Enter celebrity name"
                           type="text"
-                          className={errors.name ? "is-invalid" : ""}
+                          className={errors["identityProfile.name"] ? "is-invalid" : ""}
                         />
-                        {errors.name && (
-                          <div className="invalid-feedback d-block">{errors.name}</div>
+                        {errors["identityProfile.name"] && (
+                          <div className="invalid-feedback d-block">{errors["identityProfile.name"]}</div>
                         )}
                       </Col>
 
@@ -873,10 +505,10 @@ const AddCelebrityForm = () => {
                           onChange={handleInput}
                           placeholder="auto-generated-slug"
                           type="text"
-                          className={errors.slug ? "is-invalid" : ""}
+                          className={errors["identityProfile.slug"] ? "is-invalid" : ""}
                         />
-                        {errors.slug && (
-                          <div className="invalid-feedback d-block">{errors.slug}</div>
+                        {errors["identityProfile.slug"] && (
+                          <div className="invalid-feedback d-block">{errors["identityProfile.slug"]}</div>
                         )}
                       </Col>
 
@@ -905,10 +537,10 @@ const AddCelebrityForm = () => {
                           onChange={handleInput}
                           type="date"
                           max={new Date().toISOString().split("T")[0]}
-                          className={errors.dob ? "is-invalid" : ""}
+                          className={errors["personalDetails.dob"] ? "is-invalid" : ""}
                         />
-                        {errors.dob && (
-                          <div className="invalid-feedback d-block">{errors.dob}</div>
+                        {errors["personalDetails.dob"] && (
+                          <div className="invalid-feedback d-block">{errors["personalDetails.dob"]}</div>
                         )}
                       </Col>
 
@@ -932,7 +564,7 @@ const AddCelebrityForm = () => {
                           name="gender"
                           onChange={handleInput}
                           value={formData.gender}
-                          className={errors.gender ? "is-invalid" : ""}
+                          className={errors["personalDetails.gender"] ? "is-invalid" : ""}
                         >
                           <option value="">Select Gender</option>
                           <option value="Male">Male</option>
@@ -940,8 +572,8 @@ const AddCelebrityForm = () => {
                           <option value="Other">Other</option>
                           <option value="Prefer not to say">Prefer not to say</option>
                         </Input>
-                        {errors.gender && (
-                          <div className="invalid-feedback d-block">{errors.gender}</div>
+                        {errors["personalDetails.gender"] && (
+                          <div className="invalid-feedback d-block">{errors["personalDetails.gender"]}</div>
                         )}
                       </Col>
 
@@ -999,11 +631,7 @@ const AddCelebrityForm = () => {
                               onChange={handleInput}
                               type="date"
                               max={new Date().toISOString().split("T")[0]}
-                              className={errors.dateOfDeath ? "is-invalid" : ""}
                             />
-                            {errors.dateOfDeath && (
-                              <div className="invalid-feedback d-block">{errors.dateOfDeath}</div>
-                            )}
                           </Col>
 
                           <Col md="6" className="mb-3">
@@ -1042,10 +670,10 @@ const AddCelebrityForm = () => {
                           onChange={handleInput}
                           placeholder="Brief introduction (10-500 characters)"
                           rows="3"
-                          className={errors.shortinfo ? "is-invalid" : ""}
+                          className={errors["identityProfile.shortinfo"] ? "is-invalid" : ""}
                         />
-                        {errors.shortinfo && (
-                          <div className="invalid-feedback d-block">{errors.shortinfo}</div>
+                        {errors["identityProfile.shortinfo"] && (
+                          <div className="invalid-feedback d-block">{errors["identityProfile.shortinfo"]}</div>
                         )}
                       </Col>
 
@@ -1063,8 +691,8 @@ const AddCelebrityForm = () => {
                             }))
                           }
                         />
-                        {errors.biography && (
-                          <div className="text-danger mt-1">{errors.biography}</div>
+                        {errors["identityProfile.biography"] && (
+                          <div className="text-danger mt-1">{errors["identityProfile.biography"]}</div>
                         )}
                       </Col>
                     </Row>
@@ -1096,19 +724,12 @@ const AddCelebrityForm = () => {
                               ...prev,
                               professions: selected,
                             }));
-                            if (errors.professions) {
-                              setErrors((prev) => {
-                                const updated = { ...prev };
-                                delete updated.professions;
-                                return updated;
-                              });
-                            }
                           }}
                           placeholder="Select professions..."
-                          className={errors.professions ? "is-invalid" : ""}
+                          className={errors["professionalIdentity.professions"] ? "is-invalid" : ""}
                         />
-                        {errors.professions && (
-                          <div className="text-danger mt-1">{errors.professions}</div>
+                        {errors["professionalIdentity.professions"] && (
+                          <div className="text-danger mt-1">{errors["professionalIdentity.professions"]}</div>
                         )}
                       </Col>
 
@@ -1257,7 +878,7 @@ const AddCelebrityForm = () => {
                           name="height"
                           value={formData.height}
                           onChange={handleInput}
-                          placeholder="e.g. 5'10&quot; or 178 cm"
+
                           type="text"
                         />
                       </Col>
@@ -1271,146 +892,6 @@ const AddCelebrityForm = () => {
                           placeholder="e.g. Romantic roles, open-arm pose"
                           type="text"
                         />
-                      </Col>
-
-                      <Col md="12" className="mb-4 mt-4">
-                        <hr />
-                        <h5 className="mb-3">Social Links</h5>
-                      </Col>
-
-                      <Col md="12" className="mb-4">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <Label>Social Media Profiles</Label>
-                          <Button
-                            color="primary"
-                            size="sm"
-                            type="button"
-                            onClick={() =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                socialLinks: [
-                                  ...prev.socialLinks,
-                                  { platform: "", url: "", label: "" },
-                                ],
-                              }))
-                            }
-                          >
-                            + Add Link
-                          </Button>
-                        </div>
-
-                        {formData.socialLinks.length > 0 ? (
-                          <div>
-                            {formData.socialLinks.map((item, index) => {
-                              const platformOption = socialLinksOptions.find(
-                                (opt) => opt.value === item.platform
-                              );
-
-                              const availableOptions = socialLinksOptions.filter((option) => {
-                                const isAlreadySelected = formData.socialLinks.some(
-                                  (link, idx) => idx !== index && link.platform === option.value
-                                );
-                                return !isAlreadySelected;
-                              });
-
-                              return (
-                                <div key={index} className="mb-3 p-3 border rounded">
-                                  <Row className="g-2 align-items-start">
-                                    <Col md="4">
-                                      <Label className="small">Platform</Label>
-                                      <Select
-                                        options={availableOptions}
-                                        styles={customSelectStyles}
-                                        value={platformOption}
-                                        onChange={(selected) => {
-                                          const updated = [...formData.socialLinks];
-                                          updated[index].platform = selected ? selected.value : "";
-                                          setFormData((prev) => ({
-                                            ...prev,
-                                            socialLinks: updated,
-                                          }));
-                                        }}
-                                        placeholder="Select Platform"
-                                        isClearable
-                                      />
-                                    </Col>
-
-                                    <Col md="5">
-                                      <Label className="small">URL</Label>
-                                      <Input
-                                        type="text"
-                                        placeholder="https://example.com/profile"
-                                        value={item.url || ""}
-                                        onChange={(e) => {
-                                          const updated = [...formData.socialLinks];
-                                          updated[index].url = e.target.value;
-                                          setFormData((prev) => ({
-                                            ...prev,
-                                            socialLinks: updated,
-                                          }));
-                                          if (errors[`socialLink_${index}`]) {
-                                            setErrors((prev) => {
-                                              const updated = { ...prev };
-                                              delete updated[`socialLink_${index}`];
-                                              return updated;
-                                            });
-                                          }
-                                        }}
-                                        className={errors[`socialLink_${index}`] ? "is-invalid" : ""}
-                                      />
-                                      {errors[`socialLink_${index}`] && (
-                                        <div className="invalid-feedback d-block">
-                                          {errors[`socialLink_${index}`]}
-                                        </div>
-                                      )}
-                                    </Col>
-
-                                    <Col md="2">
-                                      <Label className="small">Label (Optional)</Label>
-                                      <Input
-                                        type="text"
-                                        placeholder="e.g. Fan Club"
-                                        value={item.label || ""}
-                                        onChange={(e) => {
-                                          const updated = [...formData.socialLinks];
-                                          updated[index].label = e.target.value;
-                                          setFormData((prev) => ({
-                                            ...prev,
-                                            socialLinks: updated,
-                                          }));
-                                        }}
-                                      />
-                                    </Col>
-
-                                    <Col md="1" className="d-flex align-items-end">
-                                      <Button
-                                        color="danger"
-                                        size="sm"
-                                        type="button"
-                                        onClick={() => {
-                                          const updated = formData.socialLinks.filter(
-                                            (_, i) => i !== index
-                                          );
-                                          setFormData((prev) => ({
-                                            ...prev,
-                                            socialLinks: updated,
-                                          }));
-                                        }}
-                                        style={{ marginTop: "24px" }}
-                                      >
-                                        ×
-                                      </Button>
-                                    </Col>
-                                  </Row>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="text-center text-muted p-3 border rounded">
-                            No social links added yet
-                          </div>
-                        )}
                       </Col>
                     </Row>
                   )}
@@ -1942,178 +1423,308 @@ const AddCelebrityForm = () => {
                     </Row>
                   )}
 
-                  {currentStep === 5 && isAdmin && (
+                  {currentStep === 5 && (
                     <Row>
                       <Col md="12" className="mb-3">
-                        <h4 className="mb-4">SEO & Admin Controls</h4>
+                        <h4 className="mb-4">Social Links & SEO</h4>
                       </Col>
 
-                      <Col md="12" className="mb-3">
-                        <Label>Tags</Label>
-                        <Input
-                          type="text"
-                          value={tagInput}
-                          onChange={(e) => setTagInput(e.target.value)}
-                          onKeyDown={handleTagKeyDown}
-                          placeholder="Type a tag and press Enter..."
-                        />
-                        <small className="text-muted">Press Enter to add tag</small>
-
-                        {formData.tags.length > 0 && (
-                          <div className="mt-2 d-flex flex-wrap gap-2">
-                            {formData.tags.map((tag, index) => (
-                              <span
-                                key={index}
-                                className="badge bg-primary d-flex align-items-center"
-                                style={{
-                                  fontSize: "14px",
-                                  padding: "6px 10px",
-                                }}
-                              >
-                                {tag}
-                                <button
-                                  type="button"
-                                  onClick={() => removeTag(index)}
-                                  style={{
-                                    marginLeft: "8px",
-                                    background: "transparent",
-                                    border: "none",
-                                    color: "white",
-                                    cursor: "pointer",
-                                    fontSize: "16px",
-                                  }}
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </Col>
-
-                      <Col md="12" className="mb-3">
-                        <Label>SEO Meta Title</Label>
-                        <Input
-                          name="seoMetaTitle"
-                          value={formData.seoMetaTitle}
-                          onChange={handleInput}
-                          placeholder="Max 60 characters"
-                          type="text"
-                          maxLength="60"
-                        />
-                        <small className="text-muted">
-                          {formData.seoMetaTitle.length}/60 characters
-                        </small>
-                      </Col>
-
-                      <Col md="12" className="mb-3">
-                        <Label>SEO Meta Description</Label>
-                        <Input
-                          type="textarea"
-                          name="seoMetaDescription"
-                          value={formData.seoMetaDescription}
-                          onChange={handleInput}
-                          placeholder="Max 160 characters"
-                          rows="3"
-                          maxLength="160"
-                        />
-                        <small className="text-muted">
-                          {formData.seoMetaDescription.length}/160 characters
-                        </small>
-                      </Col>
-
-                      <Col md="12" className="mb-3">
-                        <Label>SEO Keywords</Label>
-                        <Input
-                          type="text"
-                          value={keywordInput}
-                          onChange={(e) => setKeywordInput(e.target.value)}
-                          onKeyDown={handleKeywordKeyDown}
-                          placeholder="Type a keyword and press Enter..."
-                        />
-                        <small className="text-muted">Press Enter to add keyword</small>
-
-                        {formData.seoKeywords.length > 0 && (
-                          <div className="mt-2 d-flex flex-wrap gap-2">
-                            {formData.seoKeywords.map((keyword, index) => (
-                              <span
-                                key={index}
-                                className="badge bg-secondary d-flex align-items-center"
-                                style={{
-                                  fontSize: "14px",
-                                  padding: "6px 10px",
-                                }}
-                              >
-                                {keyword}
-                                <button
-                                  type="button"
-                                  onClick={() => removeKeyword(index)}
-                                  style={{
-                                    marginLeft: "8px",
-                                    background: "transparent",
-                                    border: "none",
-                                    color: "white",
-                                    cursor: "pointer",
-                                    fontSize: "16px",
-                                  }}
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </Col>
-
-                      <Col md="12">
-                        <hr className="my-4" />
-                        <h5 className="mb-3">Admin Controls</h5>
-                      </Col>
-
-                      <Col md="6" className="mb-3">
-                        <div className="form-check">
-                          <Input
-                            type="checkbox"
-                            id="isFeatured"
-                            name="isFeatured"
-                            checked={formData.isFeatured}
-                            onChange={handleInput}
-                          />
-                          <Label check for="isFeatured">
-                            Featured / Priority
-                          </Label>
+                      <Col md="12" className="mb-4">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <Label>Social Links</Label>
+                          <Button
+                            color="primary"
+                            size="sm"
+                            type="button"
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                socialLinks: [
+                                  ...prev.socialLinks,
+                                  { platform: "", url: "", label: "" },
+                                ],
+                              }))
+                            }
+                          >
+                            + Add Link
+                          </Button>
                         </div>
+
+                        {formData.socialLinks.length > 0 ? (
+                          <div>
+                            {formData.socialLinks.map((item, index) => {
+                              const platformOption = socialLinksOptions.find(
+                                (opt) => opt.value === item.platform
+                              );
+
+                              const availableOptions = socialLinksOptions.filter((option) => {
+                                const isAlreadySelected = formData.socialLinks.some(
+                                  (link, idx) => idx !== index && link.platform === option.value
+                                );
+                                return !isAlreadySelected;
+                              });
+
+                              return (
+                                <div key={index} className="mb-3 p-3 border rounded">
+                                  <Row className="g-2 align-items-start">
+                                    <Col md="4">
+                                      <Label className="small">Platform</Label>
+                                      <Select
+                                        options={availableOptions}
+                                        styles={customSelectStyles}
+                                        value={platformOption}
+                                        onChange={(selected) => {
+                                          const updated = [...formData.socialLinks];
+                                          updated[index].platform = selected ? selected.value : "";
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            socialLinks: updated,
+                                          }));
+                                        }}
+                                        placeholder="Select Platform"
+                                        isClearable
+                                      />
+                                    </Col>
+
+                                    <Col md="5">
+                                      <Label className="small">URL</Label>
+                                      <Input
+                                        type="text"
+                                        placeholder="https://example.com/profile"
+                                        value={item.url || ""}
+                                        onChange={(e) => {
+                                          const updated = [...formData.socialLinks];
+                                          updated[index].url = e.target.value;
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            socialLinks: updated,
+                                          }));
+                                        }}
+                                      />
+                                    </Col>
+
+                                    <Col md="2">
+                                      <Label className="small">Label (Optional)</Label>
+                                      <Input
+                                        type="text"
+                                        placeholder="e.g. Fan Club"
+                                        value={item.label || ""}
+                                        onChange={(e) => {
+                                          const updated = [...formData.socialLinks];
+                                          updated[index].label = e.target.value;
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            socialLinks: updated,
+                                          }));
+                                        }}
+                                      />
+                                    </Col>
+
+                                    <Col md="1" className="d-flex align-items-end">
+                                      <Button
+                                        color="danger"
+                                        size="sm"
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = formData.socialLinks.filter(
+                                            (_, i) => i !== index
+                                          );
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            socialLinks: updated,
+                                          }));
+                                        }}
+                                        style={{ marginTop: "24px" }}
+                                      >
+                                        ×
+                                      </Button>
+                                    </Col>
+                                  </Row>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center text-muted p-3 border rounded">
+                            No social links added yet
+                          </div>
+                        )}
                       </Col>
 
-                      <Col md="6" className="mb-3">
-                        <Label>Verification Status</Label>
-                        <Input
-                          type="select"
-                          name="verificationStatus"
-                          onChange={handleInput}
-                          value={formData.verificationStatus}
-                        >
-                          <option value="Not Claimed">Not Claimed</option>
-                          <option value="Claim Requested">Claim Requested</option>
-                          <option value="Verified">Verified</option>
-                        </Input>
-                      </Col>
+                      {isAdmin && (
+                        <>
+                          <Col md="12">
+                            <hr className="my-4" />
+                            <h5 className="mb-3">SEO Metadata</h5>
+                          </Col>
 
-                      <Col md="12" className="mb-3">
-                        <Label>Internal Notes (Admin Only)</Label>
-                        <Input
-                          type="textarea"
-                          name="internalNotes"
-                          value={formData.internalNotes}
-                          onChange={handleInput}
-                          placeholder="Private notes for admin reference..."
-                          rows="3"
-                        />
-                      </Col>
+                          <Col md="12" className="mb-3">
+                            <Label>Tags</Label>
+                            <Input
+                              type="text"
+                              value={tagInput}
+                              onChange={(e) => setTagInput(e.target.value)}
+                              onKeyDown={handleTagKeyDown}
+                              placeholder="Type a tag and press Enter..."
+                            />
+                            <small className="text-muted">Press Enter to add tag</small>
+
+                            {formData.tags.length > 0 && (
+                              <div className="mt-2 d-flex flex-wrap gap-2">
+                                {formData.tags.map((tag, index) => (
+                                  <span
+                                    key={index}
+                                    className="badge bg-primary d-flex align-items-center"
+                                    style={{
+                                      fontSize: "14px",
+                                      padding: "6px 10px",
+                                    }}
+                                  >
+                                    {tag}
+                                    <button
+                                      type="button"
+                                      onClick={() => removeTag(index)}
+                                      style={{
+                                        marginLeft: "8px",
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "white",
+                                        cursor: "pointer",
+                                        fontSize: "16px",
+                                      }}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </Col>
+
+                          <Col md="12" className="mb-3">
+                            <Label>SEO Meta Title</Label>
+                            <Input
+                              name="seoMetaTitle"
+                              value={formData.seoMetaTitle}
+                              onChange={handleInput}
+                              placeholder="Max 60 characters"
+                              type="text"
+                              maxLength="60"
+                            />
+                            <small className="text-muted">
+                              {formData.seoMetaTitle.length}/60 characters
+                            </small>
+                          </Col>
+
+                          <Col md="12" className="mb-3">
+                            <Label>SEO Meta Description</Label>
+                            <Input
+                              type="textarea"
+                              name="seoMetaDescription"
+                              value={formData.seoMetaDescription}
+                              onChange={handleInput}
+                              placeholder="Max 160 characters"
+                              rows="3"
+                              maxLength="160"
+                            />
+                            <small className="text-muted">
+                              {formData.seoMetaDescription.length}/160 characters
+                            </small>
+                          </Col>
+
+                          <Col md="12" className="mb-3">
+                            <Label>SEO Keywords</Label>
+                            <Input
+                              type="text"
+                              value={keywordInput}
+                              onChange={(e) => setKeywordInput(e.target.value)}
+                              onKeyDown={handleKeywordKeyDown}
+                              placeholder="Type a keyword and press Enter..."
+                            />
+                            <small className="text-muted">Press Enter to add keyword</small>
+
+                            {formData.seoKeywords.length > 0 && (
+                              <div className="mt-2 d-flex flex-wrap gap-2">
+                                {formData.seoKeywords.map((keyword, index) => (
+                                  <span
+                                    key={index}
+                                    className="badge bg-secondary d-flex align-items-center"
+                                    style={{
+                                      fontSize: "14px",
+                                      padding: "6px 10px",
+                                    }}
+                                  >
+                                    {keyword}
+                                    <button
+                                      type="button"
+                                      onClick={() => removeKeyword(index)}
+                                      style={{
+                                        marginLeft: "8px",
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "white",
+                                        cursor: "pointer",
+                                        fontSize: "16px",
+                                      }}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </Col>
+
+                          <Col md="12">
+                            <hr className="my-4" />
+                            <h5 className="mb-3">Admin Controls</h5>
+                          </Col>
+
+                          <Col md="6" className="mb-3">
+                            <div className="form-check">
+                              <Input
+                                type="checkbox"
+                                id="isFeatured"
+                                name="isFeatured"
+                                checked={formData.isFeatured}
+                                onChange={handleInput}
+                              />
+                              <Label check for="isFeatured">
+                                Featured / Priority
+                              </Label>
+                            </div>
+                          </Col>
+
+                          <Col md="6" className="mb-3">
+                            <Label>Verification Status</Label>
+                            <Input
+                              type="select"
+                              name="verificationStatus"
+                              onChange={handleInput}
+                              value={formData.verificationStatus}
+                            >
+                              <option value="Not Claimed">Not Claimed</option>
+                              <option value="Claim Requested">Claim Requested</option>
+                              <option value="Verified">Verified</option>
+                            </Input>
+                          </Col>
+
+                          <Col md="12" className="mb-3">
+                            <Label>Internal Notes (Admin Only)</Label>
+                            <Input
+                              type="textarea"
+                              name="internalNotes"
+                              value={formData.internalNotes}
+                              onChange={handleInput}
+                              placeholder="Private notes for admin reference..."
+                              rows="3"
+                            />
+                          </Col>
+                        </>
+                      )}
                     </Row>
                   )}
 
-                  {/* Navigation Buttons */}
                   <div className="d-flex justify-content-between mt-4 pt-3 border-top">
                     <Button
                       type="button"
@@ -2126,26 +1737,12 @@ const AddCelebrityForm = () => {
                     </Button>
 
                     {currentStep < totalSteps ? (
-                      <Button 
-                        type="button" 
-                        color="primary" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleNextStep();
-                        }}
-                      >
+                      <Button type="button" color="primary" onClick={handleNextStep}>
                         Next
                         <i className="bx bx-chevron-right ms-1"></i>
                       </Button>
                     ) : (
-                      <Button 
-                        type="button" 
-                        color="success"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleSubmit(e);
-                        }}
-                      >
+                      <Button type="submit" color="success">
                         <i className="bx bx-save me-1"></i>
                         Submit Celebrity
                       </Button>
@@ -2161,7 +1758,7 @@ const AddCelebrityForm = () => {
                       Cancel & Go Back
                     </Button>
                   </div>
-                </div>
+                </form>
               </CardBody>
             </Card>
           </Col>

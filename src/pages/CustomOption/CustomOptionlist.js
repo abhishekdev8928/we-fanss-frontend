@@ -11,6 +11,7 @@ import {
   Modal,
   ModalBody,
   ModalFooter,
+  Spinner,
 } from "reactstrap";
 import {
   useTable,
@@ -33,6 +34,7 @@ import {
 } from "../../api/customoptionApi";
 import { useNavigate } from "react-router-dom";
 import { getCelebratyById } from "../../api/celebratyApi";
+
 // 🔎 Global filter component
 function GlobalFilter({
   preGlobalFilteredRows,
@@ -134,7 +136,6 @@ const TableContainer = ({
             setGlobalFilter={setGlobalFilter}
           />
         )}
-       
       </Row>
 
       <div className="table-responsive react-table">
@@ -153,23 +154,36 @@ const TableContainer = ({
             ))}
           </thead>
           <tbody {...getTableBodyProps()}>
-            {page.map((row) => {
-              prepareRow(row);
-              return (
-                <tr {...row.getRowProps()} key={row.id}>
-                  {row.cells.map((cell) => (
-                    <td {...cell.getCellProps()} key={cell.column.id}>
-                      {cell.render("Cell")}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
+            {page.length > 0 ? (
+              page.map((row) => {
+                prepareRow(row);
+                return (
+                  <tr {...row.getRowProps()} key={row.id}>
+                    {row.cells.map((cell) => (
+                      <td {...cell.getCellProps()} key={cell.column.id}>
+                        {cell.render("Cell")}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-4">
+                  <div className="text-muted">
+                    <i className="mdi mdi-information-outline me-2"></i>
+                    No data available
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </Table>
       </div>
 
-      <Row className="justify-content-md-end justify-content-center align-items-center mt-3">
+      {/* Pagination */}
+      {page.length > 0 && (
+        <Row className="justify-content-md-end justify-content-center align-items-center mt-3">
         <Col className="col-md-auto">
           <div className="d-flex gap-1">
             <Button
@@ -219,6 +233,7 @@ const TableContainer = ({
           </div>
         </Col>
       </Row>
+      )}
     </Fragment>
   );
 };
@@ -232,15 +247,16 @@ TableContainer.propTypes = {
   setModalOpen: PropTypes.func.isRequired,
 };
 
-// ✅ Corrected Component Name (Uppercase)
+// ✅ Main Component
 const CustomOptionList = () => {
   const { id } = useParams();
-  const celebrityId = id; // rename for clarity
+  const celebrityId = id;
   const [customoptionList, setCustomOptionList] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalOpen2, setModalOpen2] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [celebrityName, setCelebrityName] = useState("");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   // 👇 Open modal and set ID
@@ -263,11 +279,11 @@ const CustomOptionList = () => {
       const res_data = await updatecustomoptionStatus(id, newStatus);
 
       if (res_data.success === false) {
-        toast.error(res_data.msg || "Failed to update status");
+        toast.error(res_data.message || res_data.msg || "Failed to update status");
         return;
       }
 
-      toast.success("CustomOption Master status updated successfully");
+      toast.success("CustomOption status updated successfully");
       fetchData();
     } catch (error) {
       console.error("Error updating status:", error);
@@ -278,11 +294,31 @@ const CustomOptionList = () => {
   // Fetch data
   const fetchData = async () => {
     try {
+      setLoading(true);
       const result = await getcustomoption(celebrityId);
-      setCustomOptionList(result.msg || []);
+      
+      // Handle the nested data structure from API response
+      if (result.success && result.data) {
+        // Check if data is an array
+        if (Array.isArray(result.data)) {
+          setCustomOptionList(result.data);
+        } else if (result.data.data && Array.isArray(result.data.data)) {
+          // If data is nested inside another data property
+          setCustomOptionList(result.data.data);
+        } else {
+          setCustomOptionList([]);
+        }
+      } else {
+        setCustomOptionList([]);
+      }
+
+      console.log("Fetched data:", result);
     } catch (error) {
       console.error("Error fetching CustomOption:", error);
       toast.error("Failed to load CustomOption data.");
+      setCustomOptionList([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -297,26 +333,34 @@ const CustomOptionList = () => {
       const data = await deletecustomoption(deleteId);
 
       if (data.success === false) {
-        toast.error(data.msg || "Failed to delete CustomOption");
+        toast.error(data.message || data.msg || "Failed to delete CustomOption");
         return;
       }
 
-      toast.success("CustomOption  deleted successfully");
-      setCustomOptionList((prevItems) =>
-        prevItems.filter((row) => row._id !== deleteId)
-      );
+      toast.success(data.message || "CustomOption deleted successfully");
+      
+      // Close modal first
       setModalOpen2(false);
       setDeleteId(null);
+      
+      // Refresh the entire list from server to get updated data
+      await fetchData();
+      
     } catch (error) {
-      console.error("Error deleting  CustomOption:", error);
+      console.error("Error deleting CustomOption:", error);
       toast.error("Something went wrong.");
+      setModalOpen2(false);
+      setDeleteId(null);
     }
   };
+
   const fetchCelebrityName = async () => {
     try {
       const response = await getCelebratyById(celebrityId);
       if (response.msg?.name) {
         setCelebrityName(response.msg.name);
+      } else if (response.data?.name) {
+        setCelebrityName(response.data.name);
       } else {
         console.warn("No name found in response:", response);
       }
@@ -336,7 +380,18 @@ const CustomOptionList = () => {
         Header: "No.",
         accessor: (_row, i) => i + 1,
       },
-      { Header: "Created Date", accessor: "createdAt" },
+      { 
+        Header: "Created Date", 
+        accessor: "createdAt",
+        Cell: ({ value }) => {
+          if (!value) return "-";
+          return new Date(value).toLocaleDateString('en-IN', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          });
+        }
+      },
       { Header: "Title", accessor: "title" },
       {
         Header: "Status",
@@ -385,7 +440,7 @@ const CustomOptionList = () => {
         ),
       },
     ],
-    [CustomOptionList]
+    []
   );
 
   const breadcrumbItems = [
@@ -420,14 +475,23 @@ const CustomOptionList = () => {
                   </Button>
                 </div>
               </div>
-              <TableContainer
-                columns={columns}
-                data={customoptionList}
-                customPageSize={10}
-                isGlobalFilter={true}
-                setModalOpen={setModalOpen}
-                id={id} // <-- pass it here
-              />
+
+              {/* Loading State */}
+              {loading ? (
+                <div className="text-center py-5">
+                  <Spinner color="primary" />
+                  <p className="mt-2">Loading data...</p>
+                </div>
+              ) : (
+                <TableContainer
+                  columns={columns}
+                  data={customoptionList}
+                  customPageSize={10}
+                  isGlobalFilter={true}
+                  setModalOpen={setModalOpen}
+                  id={id}
+                />
+              )}
             </CardBody>
           </Card>
         </Container>
@@ -436,7 +500,7 @@ const CustomOptionList = () => {
         <Modal isOpen={modalOpen2} toggle={() => setModalOpen2(false)}>
           <ModalBody className="mt-3">
             <h4 className="p-3 text-center">
-              Do you really want to <br /> delete the record?
+              Do you really want to <br /> delete this record?
             </h4>
             <div className="d-flex justify-content-center">
               <img
