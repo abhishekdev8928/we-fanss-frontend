@@ -135,7 +135,7 @@ const TemplateEdit = () => {
 
       if (result.success) {
         toast.success("Data updated successfully!");
-        navigate(`/dashboard/section-template-list/${celebId}/${sectionId}`);
+        navigate(`/dashboard/section-template-list/${celebId}`);
       } else {
         toast.error(result.msg || "Failed to update data");
       }

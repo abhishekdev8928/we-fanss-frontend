@@ -62,7 +62,7 @@ const Addcustomoption = () => {
     }
   };
 
-  // Validation function
+  // Validation function - ✅ REMOVED 1000 character limit
   const validateForm = () => {
     const newErrors = {};
 
@@ -75,10 +75,7 @@ const Addcustomoption = () => {
       newErrors.title = "Title cannot exceed 200 characters";
     }
 
-    // Description validation (optional, max 1000)
-    if (customoption.description && customoption.description.trim().length > 1000) {
-      newErrors.description = "Description cannot exceed 1000 characters";
-    }
+    // ✅ NO VALIDATION for description - unlimited characters allowed
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -200,7 +197,7 @@ const Addcustomoption = () => {
                       </div>
                     </Col>
 
-                    {/* Description - Optional */}
+                    {/* Description - Optional - ✅ UNLIMITED */}
                     <Col md="12">
                       <div className="mb-3">
                         <Label className="form-label">Description</Label>
@@ -223,8 +220,9 @@ const Addcustomoption = () => {
                             {errors.description}
                           </div>
                         )}
+                        {/* ✅ REMOVED character count - unlimited now */}
                         <small className="text-muted d-block mt-1">
-                          {customoption.description.length}/1000 characters (Optional)
+                          No character limit - write as much as you need
                         </small>
                       </div>
                     </Col>

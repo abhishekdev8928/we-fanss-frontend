@@ -131,7 +131,7 @@ const Template = () => {
         setFormData(initialData);
         setMediaPreviews({});
         setErrors({});
-        navigate(`/dashboard/section-template-list/${celebId}/${id}`);
+        navigate(`/dashboard/section-template-list/${celebId}`);
       } else {
         toast.error(result.msg || "Failed to save data");
       }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { Fragment, useState, useEffect } from "react";
 import {
   Card,
   CardBody,
@@ -16,9 +16,19 @@ import {
   FormGroup,
   Badge,
 } from "reactstrap";
+import {
+  useTable,
+  useGlobalFilter,
+  useAsyncDebounce,
+  useSortBy,
+  useFilters,
+  useExpanded,
+  usePagination,
+} from "react-table";
+import PropTypes from "prop-types";
 import { toast } from "react-toastify";
 import Breadcrumbs from "../../components/Common/Breadcrumb";
-import deleteimg from "../../assets/images/delete.png";
+import { Plus, Search, Pencil, Trash, Eye } from "lucide-react";
 import {
   getAllUsers,
   updateUserStatus,
@@ -27,29 +37,365 @@ import {
 } from "../../api/userManagementApi";
 import { register } from "../../api/authApi";
 import { getAllRoles } from "../../api/roleApi";
+import DeleteConfirmModal from "../../components/Modals/DeleteModal";
 
+// ========================================
+// GLOBAL FILTER COMPONENT
+// ========================================
+function GlobalFilter({
+  preGlobalFilteredRows,
+  globalFilter,
+  setGlobalFilter,
+}) {
+  const count = preGlobalFilteredRows.length;
+  const [value, setValue] = useState(globalFilter);
+
+  const onChange = useAsyncDebounce((value) => {
+    setGlobalFilter(value || undefined);
+  }, 200);
+
+  return (
+    <Col md={4}>
+      <div style={{ position: "relative" }}>
+        <Input
+          type="text"
+          className="form-control"
+          placeholder="Search users..."
+          value={value || ""}
+          onChange={(e) => {
+            setValue(e.target.value);
+            onChange(e.target.value);
+          }}
+          style={{
+            borderRadius: "8px",
+            border: "1px solid #e0e0e0",
+            padding: "10px 40px 10px 16px",
+          }}
+        />
+        <Search
+          size={18}
+          style={{
+            position: "absolute",
+            right: "12px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#999",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+    </Col>
+  );
+}
+
+function Filter() {
+  return null;
+}
+
+// ========================================
+// TABLE CONTAINER COMPONENT
+// ========================================
+const TableContainer = ({
+  columns,
+  data,
+  customPageSize,
+  className,
+  isGlobalFilter,
+  onAddClick,
+}) => {
+  const {
+    getTableProps,
+    getTableBodyProps,
+    headerGroups,
+    page,
+    prepareRow,
+    canPreviousPage,
+    canNextPage,
+    pageOptions,
+    pageCount,
+    gotoPage,
+    nextPage,
+    previousPage,
+    setPageSize,
+    state,
+    preGlobalFilteredRows,
+    setGlobalFilter,
+  } = useTable(
+    {
+      columns,
+      data,
+      defaultColumn: { Filter },
+      initialState: {
+        pageIndex: 0,
+        pageSize: customPageSize,
+      },
+    },
+    useGlobalFilter,
+    useFilters,
+    useSortBy,
+    useExpanded,
+    usePagination,
+  );
+
+  const { pageIndex, pageSize } = state;
+
+  return (
+    <Fragment>
+      {/* HEADER ROW - Page Size, Search, Add Button */}
+      <Row className="mb-3">
+        <Col md={2}>
+          <select
+            className="form-select"
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            style={{
+              borderRadius: "8px",
+              border: "1px solid #e0e0e0",
+              padding: "10px 16px",
+            }}
+          >
+            {[5, 10, 20, 50].map((size) => (
+              <option key={size} value={size}>
+                Show {size}
+              </option>
+            ))}
+          </select>
+        </Col>
+
+        {isGlobalFilter && (
+          <GlobalFilter
+            preGlobalFilteredRows={preGlobalFilteredRows}
+            globalFilter={state.globalFilter}
+            setGlobalFilter={setGlobalFilter}
+          />
+        )}
+
+        <Col md={6}>
+          <div className="d-flex justify-content-end">
+            <Button
+              onClick={onAddClick}
+              className="theme-btn bg-theme"
+              style={{
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                border: "none",
+              }}
+            >
+              <Plus size={20} />
+              Add New User
+            </Button>
+          </div>
+        </Col>
+      </Row>
+
+      {/* TABLE */}
+      <div className="table-responsive react-table">
+        <Table {...getTableProps()} className={className} style={{ borderCollapse: "separate", borderSpacing: "0" }}>
+          <thead style={{ backgroundColor: "#F5F5F5" }}>
+            {headerGroups.map((headerGroup) => (
+              <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
+                {headerGroup.headers.map((column) => (
+                  <th
+                    key={column.id}
+                    style={{
+                      padding: "16px",
+                      fontWeight: "600",
+                      fontSize: "14px",
+                      color: "#666",
+                      borderBottom: "none",
+                      verticalAlign: "middle",
+                    }}
+                  >
+                    <div {...column.getSortByToggleProps()}>
+                      {column.render("Header")}
+                      {column.isSorted ? (
+                        column.isSortedDesc ? (
+                          <i className="bx bx-chevron-down ms-1"></i>
+                        ) : (
+                          <i className="bx bx-chevron-up ms-1"></i>
+                        )
+                      ) : (
+                        ""
+                      )}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+
+          <tbody {...getTableBodyProps()}>
+            {page.length > 0 ? (
+              page.map((row) => {
+                prepareRow(row);
+                return (
+                  <tr
+                    {...row.getRowProps()}
+                    key={row.id}
+                    style={{
+                      borderBottom: "1px solid #f0f0f0",
+                    }}
+                  >
+                    {row.cells.map((cell) => (
+                      <td
+                        {...cell.getCellProps()}
+                        key={cell.column.id}
+                        style={{
+                          padding: "16px",
+                          fontSize: "14px",
+                          color: "#333",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        {cell.render("Cell")}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-4">
+                  <i className="bx bx-info-circle me-2"></i>
+                  No users found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
+      </div>
+
+      {/* PAGINATION */}
+      {page.length > 0 && (
+        <Row className="justify-content-end align-items-center mt-4">
+          <Col className="col-auto">
+            <div className="d-flex gap-2 align-items-center">
+              <button
+                onClick={() => gotoPage(0)}
+                disabled={!canPreviousPage}
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canPreviousPage ? "pointer" : "not-allowed",
+                  opacity: canPreviousPage ? 1 : 0.5,
+                }}
+              >
+                {"<<"}
+              </button>
+              <button
+                onClick={previousPage}
+                disabled={!canPreviousPage}
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canPreviousPage ? "pointer" : "not-allowed",
+                  opacity: canPreviousPage ? 1 : 0.5,
+                }}
+              >
+                {"<"}
+              </button>
+
+              <select
+                className="form-select"
+                value={pageIndex}
+                onChange={(e) => gotoPage(Number(e.target.value))}
+                style={{
+                  width: "140px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
+                {pageOptions.map((pageNum) => (
+                  <option key={pageNum} value={pageNum}>
+                    Page {pageNum + 1} of {pageOptions.length}
+                  </option>
+                ))}
+              </select>
+
+              <Input
+                type="number"
+                min={1}
+                max={pageOptions.length}
+                style={{
+                  width: "70px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+                value={pageIndex + 1}
+                onChange={(e) => {
+                  const page = e.target.value ? Number(e.target.value) - 1 : 0;
+                  gotoPage(page);
+                }}
+              />
+
+              <button
+                onClick={nextPage}
+                disabled={!canNextPage}
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canNextPage ? "pointer" : "not-allowed",
+                  opacity: canNextPage ? 1 : 0.5,
+                }}
+              >
+                {">"}
+              </button>
+              <button
+                onClick={() => gotoPage(pageCount - 1)}
+                disabled={!canNextPage}
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canNextPage ? "pointer" : "not-allowed",
+                  opacity: canNextPage ? 1 : 0.5,
+                }}
+              >
+                {">>"}
+              </button>
+            </div>
+          </Col>
+        </Row>
+      )}
+    </Fragment>
+  );
+};
+
+TableContainer.propTypes = {
+  columns: PropTypes.array.isRequired,
+  data: PropTypes.array.isRequired,
+  customPageSize: PropTypes.number,
+  className: PropTypes.string,
+  isGlobalFilter: PropTypes.bool,
+  onAddClick: PropTypes.func,
+};
+
+// ========================================
+// MAIN USER MANAGEMENT COMPONENT
+// ========================================
 const UserManagementList = () => {
-  // State management
+  // ========== STATE ==========
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+  const [loading, setLoading] = useState(true);
+
   // Modal states
   const [addModal, setAddModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
-  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [qrModal, setQrModal] = useState(false);
 
-  // Reset form when modals close
-  useEffect(() => {
-    if (!addModal && !editModal) {
-      resetForm();
-    }
-  }, [addModal, editModal]);
-  
   // Form states
   const [formData, setFormData] = useState({
     name: "",
@@ -59,133 +405,130 @@ const UserManagementList = () => {
   });
   const [errors, setErrors] = useState({});
   const [editingUserId, setEditingUserId] = useState(null);
-  const [deletingUserId, setDeletingUserId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
   const [viewingUser, setViewingUser] = useState(null);
 
-  // Fetch users
-const fetchUsers = async () => {
-  try {
-    const response = await getAllUsers();
-    const userList = response.data.users || [];
-    
-    const transformedUsers = userList.map(user => {
-      let roleName = "N/A";
-      
-      if (user.role) {
-        if (typeof user.role === "string") {
-          roleName = user.role;
-        } else if (typeof user.role === "object" && user.role.name) {
-          roleName = user.role.name;
-        }
-      }
-      
-      return {
-        _id: user._id,
-        name: user.name || "",
-        email: user.email || "",
-        profilePic: user.profilePic || null,
-        roleName: roleName,
-        roleId: user.role?._id || null,
-        isActive: user.isActive || false,
-        isVerified: user.isVerified || false,
-        totpEnabled: user.totpEnabled || false,
-        totpQrCode: user.totpQrCode || null,
-        lastLogin: user.lastLogin || null,
-        lastLoginDevice: user.lastLoginDevice || null,
-      };
-    });
-    
-    console.log("Transformed Users:", transformedUsers); // DEBUG
-    
-    setUsers(transformedUsers);
-    setFilteredUsers(transformedUsers);
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    toast.error("Failed to load users");
-  }
-};
+  // Reset form when modals close
+  useEffect(() => {
+    if (!addModal && !editModal) {
+      resetForm();
+    }
+  }, [addModal, editModal]);
 
-  // Fetch roles
+  // ========== HELPER FUNCTIONS ==========
+  const formatDate = (dateString) => {
+    if (!dateString) return "Never";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // ========== API CALLS ==========
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllUsers();
+      const userList = response?.data?.users || [];
+
+      const transformedUsers = userList.map((user) => {
+        let roleName = "N/A";
+
+        if (user?.role) {
+          if (typeof user.role === "string") {
+            roleName = user.role;
+          } else if (typeof user.role === "object" && user.role.name) {
+            roleName = user.role.name;
+          }
+        }
+
+        return {
+          _id: user?._id || "",
+          name: user?.name || "",
+          email: user?.email || "",
+          profilePic: user?.profilePic || null,
+          roleName: roleName,
+          roleId: user?.role?._id || null,
+          isActive: user?.isActive || false,
+          isVerified: user?.isVerified || false,
+          totpEnabled: user?.totpEnabled || false,
+          totpQrCode: user?.totpQrCode || null,
+          lastLogin: user?.lastLogin || null,
+          lastLoginDevice: user?.lastLoginDevice || null,
+        };
+      });
+
+      setUsers(transformedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast.error("Failed to load users");
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchRoles = async () => {
     try {
       const response = await getAllRoles();
-      setRoles(response.data || []);
+      setRoles(response?.data || []);
     } catch (error) {
       console.error("Error fetching roles:", error);
       toast.error("Failed to load roles");
     }
   };
 
-  // Search functionality
-  useEffect(() => {
-    if (searchTerm === "") {
-      setFilteredUsers(users);
-    } else {
-      const filtered = users.filter(user => 
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.roleName.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredUsers(filtered);
-    }
-    setCurrentPage(1);
-  }, [searchTerm, users]);
-
-  // Pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-
-  // Form handling
+  // ========== FORM HANDLING ==========
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const validateForm = (isEdit = false) => {
     const newErrors = {};
-    
-    if (!formData.name.trim()) {
+
+    if (!formData.name?.trim()) {
       newErrors.name = "Name is required";
     }
-    
-    if (!formData.email.trim()) {
+
+    if (!formData.email?.trim()) {
       newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Invalid email format";
     }
-    
+
     if (!isEdit && !formData.password) {
       newErrors.password = "Password is required";
     } else if (!isEdit && formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
     }
-    
+
     if (!formData.role) {
       newErrors.role = "Role is required";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ FIXED: Add user - formData.role already contains the role ID
   const handleAddUser = async () => {
     if (!validateForm(false)) return;
-    
+
     try {
-      // formData.role already contains the role ID from the dropdown
       await register({
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        role: formData.role, // ✅ ROLE ID (already stored from dropdown)
+        role: formData.role,
       });
-      
+
       toast.success("User created successfully");
       setAddModal(false);
       resetForm();
@@ -196,21 +539,20 @@ const fetchUsers = async () => {
     }
   };
 
-  // ✅ FIXED: Update user - formData.role already contains the role ID
   const handleUpdateUser = async () => {
     if (!validateForm(true)) return;
-    
+
     try {
       const updateData = {
         name: formData.name,
         email: formData.email,
-        role: formData.role, // ✅ ROLE ID (already stored from dropdown)
+        role: formData.role,
       };
-      
+
       if (formData.password && formData.password.trim()) {
         updateData.password = formData.password;
       }
-      
+
       await updateUserRole(editingUserId, updateData);
       toast.success("User updated successfully");
       setEditModal(false);
@@ -222,38 +564,45 @@ const fetchUsers = async () => {
     }
   };
 
-  // ✅ FIXED: Edit user - set roleId instead of roleName
   const openEditModal = (user) => {
     setEditingUserId(user._id);
     setFormData({
       name: user.name,
       email: user.email,
       password: "",
-      role: user.roleId, // ✅ Use roleId instead of roleName
+      role: user.roleId,
     });
     setEditModal(true);
   };
 
-  // Delete user
-  const openDeleteModal = (userId) => {
-    setDeletingUserId(userId);
-    setDeleteModal(true);
+  const handleDeleteClick = (userId) => {
+    setDeleteId(userId);
+    setDeleteModalOpen(true);
   };
 
-  const handleDeleteUser = async () => {
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) {
+      toast.error("No ID to delete.");
+      return;
+    }
+
     try {
-      await deleteUser(deletingUserId);
+      await deleteUser(deleteId);
       toast.success("User deleted successfully");
-      setDeleteModal(false);
-      setDeletingUserId(null);
-      fetchUsers();
+      setUsers((prev) => prev.filter((row) => row._id !== deleteId));
+      setDeleteModalOpen(false);
+      setDeleteId(null);
     } catch (error) {
       console.error("Error deleting user:", error);
       toast.error("Failed to delete user");
     }
   };
 
-  // Toggle status
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+    setDeleteId(null);
+  };
+
   const handleToggleStatus = async (userId, currentStatus) => {
     try {
       await updateUserStatus(userId, { isActive: !currentStatus });
@@ -265,505 +614,511 @@ const fetchUsers = async () => {
     }
   };
 
-  // View QR
   const openQrModal = (user) => {
     setViewingUser(user);
     setQrModal(true);
   };
 
-  // Reset form
   const resetForm = () => {
     setFormData({ name: "", email: "", password: "", role: "" });
     setErrors({});
     setEditingUserId(null);
   };
 
-  // Load data on mount
+  // ========== EFFECTS ==========
   useEffect(() => {
     fetchUsers();
     fetchRoles();
   }, []);
 
+  // ========== TABLE COLUMNS ==========
+  const columns = [
+    {
+      Header: "No",
+      accessor: (_row, i) => i + 1,
+      disableSortBy: true,
+    },
+    {
+      Header: "Profile",
+      accessor: "profilePic",
+      disableSortBy: true,
+      Cell: ({ row }) => {
+        const user = row.original;
+        return user?.profilePic ? (
+          <img
+            src={user.profilePic}
+            alt="Profile"
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              objectFit: "cover",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              backgroundColor: "#4F46E5",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "600",
+              fontSize: "14px",
+            }}
+          >
+            {user?.name?.charAt(0)?.toUpperCase() || "U"}
+          </div>
+        );
+      },
+    },
+    {
+      Header: "Name",
+      accessor: "name",
+      Cell: ({ value }) => <strong style={{ fontWeight: "500" }}>{value || "—"}</strong>,
+    },
+    {
+      Header: "Email",
+      accessor: "email",
+    },
+    {
+      Header: "Role",
+      accessor: "roleName",
+      Cell: ({ value }) => <span className="text-capitalize">{value || "—"}</span>,
+    },
+    {
+      Header: "Status",
+      accessor: "isActive",
+      Cell: ({ row }) => {
+        const user = row.original;
+        const isActive = user?.isActive;
+
+        return (
+          <div className="form-check form-switch">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              id={`switch-${user?._id}`}
+              checked={isActive}
+              onChange={() => handleToggleStatus(user?._id, isActive)}
+              style={{
+                width: "48px",
+                height: "24px",
+                cursor: "pointer",
+                backgroundColor: isActive ? "#4285F4" : "#ccc",
+                borderColor: isActive ? "#1E90FF" : "#ccc",
+              }}
+            />
+          </div>
+        );
+      },
+    },
+    {
+      Header: "2FA",
+      accessor: "totpQrCode",
+      disableSortBy: true,
+      Cell: ({ row }) => {
+        const user = row.original;
+        return user?.totpQrCode ? (
+          <img
+            src={user.totpQrCode}
+            alt="QR"
+            style={{
+              width: "50px",
+              height: "50px",
+              cursor: "pointer",
+              border: "1px solid #e0e0e0",
+              padding: "4px",
+              borderRadius: "6px",
+            }}
+            onClick={() => openQrModal(user)}
+          />
+        ) : (
+          <span className="text-muted" style={{ fontSize: "13px" }}>No QR</span>
+        );
+      },
+    },
+    {
+      Header: "Last Login",
+      accessor: "lastLogin",
+      Cell: ({ value }) => formatDate(value),
+    },
+    {
+      Header: "Options",
+      disableSortBy: true,
+      Cell: ({ row }) => {
+        const user = row.original;
+
+        return (
+          <div className="d-flex gap-2">
+            {/* View Details Button */}
+            <button
+              onClick={() => openQrModal(user)}
+              style={{
+                backgroundColor: "#10B98114",
+                color: "#10B981",
+                border: "none",
+                borderRadius: "6px",
+                width: "40px",
+                height: "40px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+              title="View Details"
+            >
+              <Eye size={20} />
+            </button>
+
+            {/* Edit Button */}
+            <button
+              onClick={() => openEditModal(user)}
+              style={{
+                backgroundColor: "#4285F41F",
+                color: "#1E90FF",
+                border: "none",
+                borderRadius: "6px",
+                width: "40px",
+                height: "40px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+              title="Edit User"
+            >
+              <Pencil size={20} strokeWidth="2" />
+            </button>
+
+            {/* Delete Button */}
+            <button
+              onClick={() => handleDeleteClick(user?._id)}
+              style={{
+                backgroundColor: "#FFE5E5",
+                color: "#FF5555",
+                border: "none",
+                borderRadius: "6px",
+                width: "40px",
+                height: "40px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+              title="Delete User"
+            >
+              <Trash size={20} color="#BA2526" />
+            </button>
+          </div>
+        );
+      },
+    },
+  ];
+
+  // ========== BREADCRUMB ==========
   const breadcrumbItems = [
     { title: "Dashboard", link: "/" },
     { title: "User Management", link: "#" },
   ];
 
+  // ========== RENDER ==========
   return (
-    <div className="page-content">
-      <Container fluid>
-        <Breadcrumbs title="User Management" breadcrumbItems={breadcrumbItems} />
-        
-        <Card>
-          <CardBody>
-            {/* Controls */}
-            <Row className="mb-3">
-              <Col md={2}>
-                <select
-                  className="form-select"
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <option value={5}>Show 5</option>
-                  <option value={10}>Show 10</option>
-                  <option value={20}>Show 20</option>
-                </select>
-              </Col>
-              
-              <Col md={4}>
-                <Input
-                  type="text"
-                  placeholder={`Search ${filteredUsers.length} records...`}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </Col>
-              
-              <Col md={6} className="text-end">
-                <Button 
-                  color="primary" 
-                  onClick={() => {
+    <Fragment>
+      <div className="page-content">
+        <Container fluid>
+          <Breadcrumbs title="User Management" breadcrumbItems={breadcrumbItems} />
+
+          <Card style={{ border: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", borderRadius: "12px" }}>
+            <CardBody>
+              {loading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  <p className="mt-2">Loading users...</p>
+                </div>
+              ) : (
+                <TableContainer
+                  columns={columns}
+                  data={users}
+                  customPageSize={10}
+                  isGlobalFilter={true}
+                  onAddClick={() => {
                     resetForm();
                     setAddModal(true);
                   }}
-                >
-                  <i className="mdi mdi-plus me-1"></i>
-                  Add New User
-                </Button>
-              </Col>
-            </Row>
+                />
+              )}
+            </CardBody>
+          </Card>
+        </Container>
 
-            {/* Table */}
-            <div className="table-responsive">
-              <Table bordered hover>
-                <thead className="table-light">
-                  <tr>
-                    <th>#</th>
-                    <th>Profile</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>QR Code</th>
-                    <th>Last Login</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan="9" className="text-center">
-                        No users found
-                      </td>
-                    </tr>
-                  ) : (
-                    currentUsers.map((user, index) => (
-                      <tr key={user._id}>
-                        <td>{indexOfFirstItem + index + 1}</td>
-                        <td>
-                          {user.profilePic ? (
-                            <img
-                              src={user.profilePic}
-                              alt="Profile"
-                              style={{
-                                width: "32px",
-                                height: "32px",
-                                borderRadius: "50%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                width: "32px",
-                                height: "32px",
-                                borderRadius: "50%",
-                                backgroundColor: "#4F46E5",
-                                color: "white",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontWeight: "600",
-                                fontSize: "14px",
-                              }}
-                            >
-                              {user.name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                        </td>
-                        <td>{user.name}</td>
-                        <td>{user.email}</td>
-                        <td>
-                          <span className="text-capitalize">{user.roleName}</span>
-                        </td>
-                        <td>
-                          <div className="form-check form-switch">
-                            <input
-                              type="checkbox"
-                              className="form-check-input"
-                              checked={user.isActive}
-                              onChange={() => handleToggleStatus(user._id, user.isActive)}
-                            />
-                            <label className="form-check-label">
-                              {user.isActive ? "Active" : "Inactive"}
-                            </label>
-                          </div>
-                        </td>
-                        <td>
-                          {user.totpQrCode ? (
-                            <img
-                              src={user.totpQrCode}
-                              alt="QR"
-                              style={{
-                                width: "60px",
-                                height: "60px",
-                                cursor: "pointer",
-                                border: "1px solid #ddd",
-                                padding: "4px",
-                                borderRadius: "4px",
-                              }}
-                              onClick={() => openQrModal(user)}
-                            />
-                          ) : (
-                            <span className="text-muted">No QR</span>
-                          )}
-                        </td>
-                        <td>
-                          {user.lastLogin
-                            ? new Date(user.lastLogin).toLocaleString()
-                            : "Never"}
-                        </td>
-                        <td>
-                          <div className="d-flex gap-2">
-                            <Button
-                              color="primary"
-                              size="sm"
-                              onClick={() => openEditModal(user)}
-                            >
-                              <i className="mdi mdi-pencil"></i>
-                            </Button>
-                            <Button
-                              color="danger"
-                              size="sm"
-                              onClick={() => openDeleteModal(user._id)}
-                            >
-                              <i className="mdi mdi-delete"></i>
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </Table>
-            </div>
+        {/* ========== ADD USER MODAL ========== */}
+        <Modal isOpen={addModal} toggle={() => setAddModal(false)} size="md">
+          <ModalHeader toggle={() => setAddModal(false)}>Add New User</ModalHeader>
+          <ModalBody>
+            <FormGroup>
+              <Label>Name *</Label>
+              <Input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                invalid={!!errors.name}
+                autoComplete="off"
+                style={{ borderRadius: "6px" }}
+              />
+              {errors.name && <div className="text-danger small mt-1">{errors.name}</div>}
+            </FormGroup>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <Row className="mt-3">
+            <FormGroup>
+              <Label>Email *</Label>
+              <Input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                invalid={!!errors.email}
+                autoComplete="new-email"
+                style={{ borderRadius: "6px" }}
+              />
+              {errors.email && <div className="text-danger small mt-1">{errors.email}</div>}
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Password *</Label>
+              <Input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                invalid={!!errors.password}
+                autoComplete="new-password"
+                style={{ borderRadius: "6px" }}
+              />
+              {errors.password && <div className="text-danger small mt-1">{errors.password}</div>}
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Role *</Label>
+              <Input
+                type="select"
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                invalid={!!errors.role}
+                style={{ borderRadius: "6px" }}
+              >
+                <option value="">Select Role</option>
+                {roles.map((role) => (
+                  <option key={role._id} value={role._id}>
+                    {role.name}
+                  </option>
+                ))}
+              </Input>
+              {errors.role && <div className="text-danger small mt-1">{errors.role}</div>}
+            </FormGroup>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              onClick={handleAddUser}
+              className="theme-btn bg-theme"
+              style={{ border: "none" }}
+            >
+              Add User
+            </Button>
+            <Button color="secondary" onClick={() => setAddModal(false)}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </Modal>
+
+        {/* ========== EDIT USER MODAL ========== */}
+        <Modal isOpen={editModal} toggle={() => setEditModal(false)} size="md">
+          <ModalHeader toggle={() => setEditModal(false)}>Edit User</ModalHeader>
+          <ModalBody>
+            <FormGroup>
+              <Label>Name *</Label>
+              <Input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                invalid={!!errors.name}
+                autoComplete="off"
+                style={{ borderRadius: "6px" }}
+              />
+              {errors.name && <div className="text-danger small mt-1">{errors.name}</div>}
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Email *</Label>
+              <Input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                invalid={!!errors.email}
+                autoComplete="off"
+                style={{ borderRadius: "6px" }}
+              />
+              {errors.email && <div className="text-danger small mt-1">{errors.email}</div>}
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Password (Leave blank to keep current)</Label>
+              <Input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                autoComplete="new-password"
+                style={{ borderRadius: "6px" }}
+              />
+              <small className="text-muted">Only fill to change password</small>
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Role *</Label>
+              <Input
+                type="select"
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                invalid={!!errors.role}
+                style={{ borderRadius: "6px" }}
+              >
+                <option value="">Select Role</option>
+                {roles.map((role) => (
+                  <option key={role._id} value={role._id}>
+                    {role.name}
+                  </option>
+                ))}
+              </Input>
+              {errors.role && <div className="text-danger small mt-1">{errors.role}</div>}
+            </FormGroup>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              onClick={handleUpdateUser}
+              className="theme-btn bg-theme"
+              style={{ border: "none" }}
+            >
+              Update User
+            </Button>
+            <Button color="secondary" onClick={() => setEditModal(false)}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </Modal>
+
+        {/* ========== DELETE CONFIRMATION MODAL ========== */}
+        <DeleteConfirmModal
+          isOpen={deleteModalOpen}
+          toggle={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Delete User"
+          message="Are you sure you want to delete this user? This action cannot be undone."
+          confirmText="Yes, Delete"
+          cancelText="Cancel"
+          confirmColor="danger"
+        />
+
+        {/* ========== USER DETAILS/QR MODAL ========== */}
+        <Modal isOpen={qrModal} toggle={() => setQrModal(false)} size="lg">
+          <ModalHeader toggle={() => setQrModal(false)}>
+            User Details - {viewingUser?.name}
+          </ModalHeader>
+          <ModalBody>
+            {viewingUser && (
+              <Row>
                 <Col md={6}>
-                  <p className="mb-0">
-                    Showing {indexOfFirstItem + 1} to{" "}
-                    {Math.min(indexOfLastItem, filteredUsers.length)} of{" "}
-                    {filteredUsers.length} entries
-                  </p>
+                  <h5 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px" }}>
+                    User Information
+                  </h5>
+                  <div className="mb-3">
+                    <strong>Name:</strong> {viewingUser.name || "—"}
+                  </div>
+                  <div className="mb-3">
+                    <strong>Email:</strong> {viewingUser.email || "—"}
+                  </div>
+                  <div className="mb-3">
+                    <strong>Role:</strong>{" "}
+                    <span className="text-capitalize">{viewingUser.roleName || "—"}</span>
+                  </div>
+                  <div className="mb-3">
+                    <strong>Status:</strong>{" "}
+                    {viewingUser.isActive ? (
+                      <Badge color="success">Active</Badge>
+                    ) : (
+                      <Badge color="danger">Inactive</Badge>
+                    )}
+                  </div>
+                  <div className="mb-3">
+                    <strong>Verified:</strong>{" "}
+                    {viewingUser.isVerified ? (
+                      <Badge color="success">Yes</Badge>
+                    ) : (
+                      <Badge color="warning">No</Badge>
+                    )}
+                  </div>
+                  <div className="mb-3">
+                    <strong>2FA Enabled:</strong>{" "}
+                    {viewingUser.totpEnabled ? (
+                      <Badge color="success">Yes</Badge>
+                    ) : (
+                      <Badge color="secondary">No</Badge>
+                    )}
+                  </div>
+                  <div className="mb-3">
+                    <strong>Last Login:</strong> {formatDate(viewingUser.lastLogin)}
+                  </div>
+                  {viewingUser.lastLoginDevice && (
+                    <div className="mb-3">
+                      <strong>Last Device:</strong> {viewingUser.lastLoginDevice}
+                    </div>
+                  )}
                 </Col>
                 <Col md={6}>
-                  <div className="d-flex justify-content-end gap-2">
-                    <Button
-                      color="primary"
-                      size="sm"
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                    >
-                      First
-                    </Button>
-                    <Button
-                      color="primary"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <span className="align-self-center mx-2">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                      color="primary"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                    <Button
-                      color="primary"
-                      size="sm"
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Last
-                    </Button>
-                  </div>
+                  <h5 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px" }}>
+                    2FA QR Code
+                  </h5>
+                  {viewingUser.totpQrCode ? (
+                    <div className="text-center">
+                      <img
+                        src={viewingUser.totpQrCode}
+                        alt="QR Code"
+                        style={{
+                          maxWidth: "300px",
+                          width: "100%",
+                          border: "1px solid #e0e0e0",
+                          padding: "12px",
+                          borderRadius: "8px",
+                        }}
+                      />
+                      <p className="text-muted mt-3" style={{ fontSize: "14px" }}>
+                        Scan with authenticator app
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-muted">No QR code available</p>
+                  )}
                 </Col>
               </Row>
             )}
-          </CardBody>
-        </Card>
-      </Container>
-
-      {/* Add User Modal */}
-      <Modal isOpen={addModal} toggle={() => setAddModal(false)}>
-        <ModalHeader toggle={() => setAddModal(false)}>
-          Add New User
-        </ModalHeader>
-        <ModalBody>
-          <FormGroup>
-            <Label>Name *</Label>
-            <Input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              invalid={!!errors.name}
-              autoComplete="off"
-            />
-            {errors.name && <div className="text-danger small">{errors.name}</div>}
-          </FormGroup>
-
-          <FormGroup>
-            <Label>Email *</Label>
-            <Input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              invalid={!!errors.email}
-              autoComplete="new-email"
-            />
-            {errors.email && <div className="text-danger small">{errors.email}</div>}
-          </FormGroup>
-
-          <FormGroup>
-            <Label>Password *</Label>
-            <Input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              invalid={!!errors.password}
-              autoComplete="new-password"
-            />
-            {errors.password && <div className="text-danger small">{errors.password}</div>}
-          </FormGroup>
-
-          <FormGroup>
-            <Label>Role *</Label>
-            <Input
-              type="select"
-              name="role"
-              value={formData.role}
-              onChange={handleInputChange}
-              invalid={!!errors.role}
-            >
-              <option value="">Select Role</option>
-              {roles.map((role) => (
-                <option key={role._id} value={role._id}>
-                  {role.name}
-                </option>
-              ))}
-            </Input>
-            {errors.role && <div className="text-danger small">{errors.role}</div>}
-          </FormGroup>
-        </ModalBody>
-        <ModalFooter>
-          <Button color="primary" onClick={handleAddUser}>
-            Add User
-          </Button>
-          <Button color="secondary" onClick={() => setAddModal(false)}>
-            Cancel
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* Edit User Modal */}
-      <Modal isOpen={editModal} toggle={() => setEditModal(false)}>
-        <ModalHeader toggle={() => setEditModal(false)}>
-          Edit User
-        </ModalHeader>
-        <ModalBody>
-          <FormGroup>
-            <Label>Name *</Label>
-            <Input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              invalid={!!errors.name}
-              autoComplete="off"
-            />
-            {errors.name && <div className="text-danger small">{errors.name}</div>}
-          </FormGroup>
-
-          <FormGroup>
-            <Label>Email *</Label>
-            <Input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              invalid={!!errors.email}
-              autoComplete="off"
-            />
-            {errors.email && <div className="text-danger small">{errors.email}</div>}
-          </FormGroup>
-
-          <FormGroup>
-            <Label>Password (Leave blank to keep current)</Label>
-            <Input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              autoComplete="new-password"
-            />
-            <small className="text-muted">Only fill to change password</small>
-          </FormGroup>
-
-          <FormGroup>
-            <Label>Role *</Label>
-            <Input
-              type="select"
-              name="role"
-              value={formData.role}
-              onChange={handleInputChange}
-              invalid={!!errors.role}
-            >
-              <option value="">Select Role</option>
-              {roles.map((role) => (
-                <option key={role._id} value={role._id}>
-                  {role.name}
-                </option>
-              ))}
-            </Input>
-            {errors.role && <div className="text-danger small">{errors.role}</div>}
-          </FormGroup>
-        </ModalBody>
-        <ModalFooter>
-          <Button color="primary" onClick={handleUpdateUser}>
-            Update User
-          </Button>
-          <Button color="secondary" onClick={() => setEditModal(false)}>
-            Cancel
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* Delete Modal */}
-      <Modal isOpen={deleteModal} toggle={() => setDeleteModal(false)}>
-        <ModalBody className="text-center py-4">
-          <h4 className="mb-4">
-            Do you really want to delete this user?
-          </h4>
-          <img src={deleteimg} alt="Delete" style={{ width: "200px" }} />
-        </ModalBody>
-        <ModalFooter>
-          <Button color="danger" onClick={handleDeleteUser}>
-            Delete
-          </Button>
-          <Button color="secondary" onClick={() => setDeleteModal(false)}>
-            Cancel
-          </Button>
-        </ModalFooter>
-      </Modal>
-
-      {/* QR Modal */}
-      <Modal isOpen={qrModal} toggle={() => setQrModal(false)} size="lg">
-        <ModalHeader toggle={() => setQrModal(false)}>
-          User Details - {viewingUser?.name}
-        </ModalHeader>
-        <ModalBody>
-          {viewingUser && (
-            <Row>
-              <Col md={6}>
-                <h5>User Information</h5>
-                <div className="mb-3">
-                  <strong>Name:</strong> {viewingUser.name}
-                </div>
-                <div className="mb-3">
-                  <strong>Email:</strong> {viewingUser.email}
-                </div>
-                <div className="mb-3">
-                  <strong>Role:</strong>{" "}
-                  <span className="text-capitalize">{viewingUser.roleName}</span>
-                </div>
-                <div className="mb-3">
-                  <strong>Status:</strong>{" "}
-                  {viewingUser.isActive ? (
-                    <Badge color="success">Active</Badge>
-                  ) : (
-                    <Badge color="danger">Inactive</Badge>
-                  )}
-                </div>
-                <div className="mb-3">
-                  <strong>Verified:</strong>{" "}
-                  {viewingUser.isVerified ? (
-                    <Badge color="success">Yes</Badge>
-                  ) : (
-                    <Badge color="warning">No</Badge>
-                  )}
-                </div>
-                <div className="mb-3">
-                  <strong>2FA Enabled:</strong>{" "}
-                  {viewingUser.totpEnabled ? (
-                    <Badge color="success">Yes</Badge>
-                  ) : (
-                    <Badge color="secondary">No</Badge>
-                  )}
-                </div>
-                <div className="mb-3">
-                  <strong>Last Login:</strong>{" "}
-                  {viewingUser.lastLogin
-                    ? new Date(viewingUser.lastLogin).toLocaleString()
-                    : "Never"}
-                </div>
-                {viewingUser.lastLoginDevice && (
-                  <div className="mb-3">
-                    <strong>Last Device:</strong> {viewingUser.lastLoginDevice}
-                  </div>
-                )}
-              </Col>
-              <Col md={6}>
-                <h5>2FA QR Code</h5>
-                {viewingUser.totpQrCode ? (
-                  <div className="text-center">
-                    <img
-                      src={viewingUser.totpQrCode}
-                      alt="QR Code"
-                      style={{ maxWidth: "300px", width: "100%" }}
-                    />
-                    <p className="text-muted mt-3">
-                      Scan with authenticator app
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-muted">No QR code available</p>
-                )}
-              </Col>
-            </Row>
-          )}
-        </ModalBody>
-        <ModalFooter>
-          <Button color="secondary" onClick={() => setQrModal(false)}>
-            Close
-          </Button>
-        </ModalFooter>
-      </Modal>
-    </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button color="secondary" onClick={() => setQrModal(false)}>
+              Close
+            </Button>
+          </ModalFooter>
+        </Modal>
+      </div>
+    </Fragment>
   );
 };
 

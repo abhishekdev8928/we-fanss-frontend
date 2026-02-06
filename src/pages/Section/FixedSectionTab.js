@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import { getProfessionsByCelebrityId } from '../../api/professionalmasterApi';
 
-const FixedSectionTab = ({ activeTabId, pageTitle = "Section List"  }) => {
+const FixedSectionTab = ({ activeTabId }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const celebrityId = '69832ea999854151052ac95a';
+  const { id, celebId } = useParams();
+  
+  // Use whichever param is available (different routes might use different param names)
+  const celebrityId = id || celebId;
   
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [celebrityName, setCelebrityName] = useState("");
 
   const staticTabs = [
     { _id: 'timeline', title: 'Timeline', icon: 'bx-time', route: `/dashboard/timeline-list/${celebrityId}` },
@@ -35,15 +38,25 @@ const FixedSectionTab = ({ activeTabId, pageTitle = "Section List"  }) => {
   ];
 
   useEffect(() => {
-    fetchProfessions();
-  }, []);
+    if (celebrityId) {
+      fetchProfessions();
+    }
+  }, [celebrityId]);
 
   const fetchProfessions = async () => {
     try {
       setLoading(true);
       const response = await getProfessionsByCelebrityId(celebrityId);
-      const professionsData = response.data.professions || [];
+      
+      // Extract celebrity name from response
+      if (response.data?.celebrityName) {
+        setCelebrityName(response.data.celebrityName);
+      }
+      
+      const professionsData = response.data?.professions || [];
       const professionTabs = [];
+
+      console.log(professionsData);
       
       professionsData.forEach((profession) => {
         if (profession.name === 'Actor') {
@@ -51,7 +64,7 @@ const FixedSectionTab = ({ activeTabId, pageTitle = "Section List"  }) => {
             { _id: 'movie', title: 'Movie', icon: 'bx-movie', route: `/dashboard/list-movie/${celebrityId}`, profession: 'Actor' },
             { _id: 'series', title: 'Series', icon: 'bx-tv', route: `/dashboard/list-series/${celebrityId}`, profession: 'Actor' }
           );
-        } else if (profession.name === 'Politician') {
+        } else if (profession.name === 'politician' || profession.name === 'Politician') {
           professionTabs.push(
             { _id: 'election', title: 'Election', icon: 'bx-vote', route: `/dashboard/list-election/${celebrityId}`, profession: 'Politician' },
             { _id: 'positions', title: 'Positions', icon: 'bx-briefcase', route: `/dashboard/list-positions/${celebrityId}`, profession: 'Politician' }
@@ -125,6 +138,18 @@ const FixedSectionTab = ({ activeTabId, pageTitle = "Section List"  }) => {
   if (loading) {
     return (
       <>
+        {/* Celebrity Name Skeleton */}
+        <div 
+          className="skeleton mb-3" 
+          style={{
+            width: "250px",
+            height: "36px",
+            borderRadius: "4px",
+            backgroundColor: "#e9ecef",
+            animation: "pulse 1.5s ease-in-out infinite",
+          }}
+        />
+
         {/* Header Section */}
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div className="d-flex gap-4 align-items-center">
@@ -150,19 +175,40 @@ const FixedSectionTab = ({ activeTabId, pageTitle = "Section List"  }) => {
           </div>
           <div>
             <small className="text-muted">
-              Celebrity List / Fixed Sections
+              <Link to="/dashboard/celebrity-list" className="text-decoration-none text-muted">
+                Celebrity List
+              </Link>
+              {" / Fixed Sections"}
             </small>
           </div>
         </div>
 
         {/* Skeleton Tabs */}
         <TabSkeleton />
+
+        <style jsx>{`
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.5;
+            }
+          }
+        `}</style>
       </>
     );
   }
 
   return (
     <>
+      {/* Celebrity Name */}
+      {celebrityName && (
+        <p className="text-black mb-3" style={{ fontSize: "26px", fontWeight: "400" }}>
+          {celebrityName}
+        </p>
+      )}
+
       {/* Header Section */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div className="d-flex gap-4 align-items-center">
@@ -188,77 +234,95 @@ const FixedSectionTab = ({ activeTabId, pageTitle = "Section List"  }) => {
         </div>
         <div>
           <small className="text-muted">
-            Celebrity List / Fixed Sections
+            <Link to="/dashboard/celebrity-list" className="text-decoration-none text-muted">
+              Celebrity List
+            </Link>
+            {" / Fixed Sections"}
           </small>
         </div>
       </div>
 
       {/* Tabs Section */}
-      <div 
-        className="d-flex flex-wrap border-bottom align-items-center mb-3" 
-        style={{ gap: "8px" }}
-      >
-        {sections.map((section, index) => (
-          <div
-            key={section._id}
-            onClick={() => handleTabClick(section)}
-            style={{
-              minWidth: "200px",
-              padding: "16px 24px",
-              cursor: "pointer",
-              backgroundColor: activeTabId === section._id ? "#f8f9fa" : "transparent",
-              borderBottom: activeTabId === section._id ? "3px solid #4285F4" : "3px solid transparent",
-              transition: "all 0.3s ease",
-              opacity: 1,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-            onMouseEnter={(e) => {
-              if (activeTabId !== section._id) {
-                e.currentTarget.style.backgroundColor = "#f8f9fa";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeTabId !== section._id) {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }
-            }}
-          >
-            <div className="d-flex justify-content-center align-items-center gap-2">
-              <div
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "50%",
-                  backgroundColor: activeTabId === section._id ? "#4285F4" : "#e9ecef",
-                  color: activeTabId === section._id ? "#fff" : "#6c757d",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  flexShrink: 0,
-                  transition: "all 0.3s ease",
-                }}
-              >
-                {index + 1}
-              </div>
-              <div 
-                style={{ 
-                  fontWeight: activeTabId === section._id ? "600" : "normal", 
-                  fontSize: "14px",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  color: activeTabId === section._id ? "#000" : "#6c757d",
-                }}
-              >
-                {section.title}
+      {sections.length > 0 ? (
+        <div 
+          className="d-flex flex-wrap border-bottom align-items-center mb-3" 
+          style={{ gap: "8px" }}
+        >
+          {sections.map((section, index) => (
+            <div
+              key={section._id}
+              onClick={() => handleTabClick(section)}
+              style={{
+                minWidth: "200px",
+                padding: "16px 24px",
+                cursor: "pointer",
+                backgroundColor: activeTabId === section._id ? "#f8f9fa" : "transparent",
+                borderBottom: activeTabId === section._id ? "3px solid #4285F4" : "3px solid transparent",
+                transition: "all 0.3s ease",
+                opacity: 1,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+              onMouseEnter={(e) => {
+                if (activeTabId !== section._id) {
+                  e.currentTarget.style.backgroundColor = "#f8f9fa";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTabId !== section._id) {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }
+              }}
+            >
+              <div className="d-flex justify-content-center align-items-center gap-2">
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    backgroundColor: activeTabId === section._id ? "#4285F4" : "#e9ecef",
+                    color: activeTabId === section._id ? "#fff" : "#6c757d",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    flexShrink: 0,
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  {index + 1}
+                </div>
+                <div 
+                  style={{ 
+                    fontWeight: activeTabId === section._id ? "600" : "normal", 
+                    fontSize: "14px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    color: activeTabId === section._id ? "#000" : "#6c757d",
+                  }}
+                >
+                  {section.title}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div 
+          className="text-center py-5 border-bottom mb-3" 
+          style={{ 
+            backgroundColor: "#f8f9fa",
+            borderRadius: "8px"
+          }}
+        >
+          <i className="bx bx-info-circle" style={{ fontSize: "48px", color: "#6c757d" }}></i>
+          <p className="text-muted mt-3 mb-0" style={{ fontSize: "16px" }}>
+            No sections available
+          </p>
+        </div>
+      )}
     </>
   );
 };

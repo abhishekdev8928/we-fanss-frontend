@@ -6,7 +6,6 @@ import {
   Table,
   Row,
   Col,
-  Button,
   Input,
   Modal,
   ModalHeader,
@@ -26,9 +25,8 @@ import {
 import PropTypes from "prop-types";
 import Breadcrumbs from "../../components/Common/Breadcrumb";
 import { Link } from "react-router-dom";
-import deleteimg from "../../assets/images/delete.png";
 import { toast } from "react-toastify";
-import { Edit, Trash2, Plus, Search, Pencil, Trash } from "lucide-react";
+import { Plus, Search, Pencil, Trash } from "lucide-react";
 import {
   getCelebraties,
   deleteCelebraty,
@@ -37,7 +35,7 @@ import {
 import PrivilegeAccess from "../../components/protection/PrivilegeAccess";
 import { RESOURCES, OPERATIONS } from "../../constant/privilegeConstants";
 import { usePrivilegeStore } from "../../config/store/privilegeStore";
-import DeleteConfirmModal from "../../components/Modals/DeleteModal"; // adjust path if needed
+import DeleteConfirmModal from "../../components/Modals/DeleteModal";
 
 // ========================================
 // GLOBAL FILTER COMPONENT
@@ -179,16 +177,10 @@ const TableContainer = ({
                 to="/dashboard/add-celebrity"
                 className="theme-btn bg-theme"
                 style={{
-                 
-                  color: "white",
-                  borderRadius: "8px",
-                  padding: "10px 16px",
-                  border: "none",
-                  fontWeight: "500",
-                  display: "flex",
+                  textDecoration: "none",
+                  display: "inline-flex",
                   alignItems: "center",
                   gap: "8px",
-                  fontSize:"16px"
                 }}
               >
                 <Plus size={20} />
@@ -214,6 +206,7 @@ const TableContainer = ({
                       fontSize: "14px",
                       color: "#666",
                       borderBottom: "none",
+                      verticalAlign: "middle",
                     }}
                   >
                     <div {...column.getSortByToggleProps()}>
@@ -254,6 +247,7 @@ const TableContainer = ({
                           padding: "16px",
                           fontSize: "14px",
                           color: "#333",
+                          verticalAlign: "middle",
                         }}
                       >
                         {cell.render("Cell")}
@@ -279,32 +273,34 @@ const TableContainer = ({
         <Row className="justify-content-end align-items-center mt-4">
           <Col className="col-auto">
             <div className="d-flex gap-2 align-items-center">
-              <Button
-                color="light"
+              <button
                 onClick={() => gotoPage(0)}
                 disabled={!canPreviousPage}
-                size="sm"
                 style={{
                   border: "1px solid #e0e0e0",
                   borderRadius: "6px",
                   padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canPreviousPage ? "pointer" : "not-allowed",
+                  opacity: canPreviousPage ? 1 : 0.5,
                 }}
               >
                 {"<<"}
-              </Button>
-              <Button
-                color="light"
+              </button>
+              <button
                 onClick={previousPage}
                 disabled={!canPreviousPage}
-                size="sm"
                 style={{
                   border: "1px solid #e0e0e0",
                   borderRadius: "6px",
                   padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canPreviousPage ? "pointer" : "not-allowed",
+                  opacity: canPreviousPage ? 1 : 0.5,
                 }}
               >
                 {"<"}
-              </Button>
+              </button>
 
               <select
                 className="form-select"
@@ -341,32 +337,34 @@ const TableContainer = ({
                 }}
               />
 
-              <Button
-                color="light"
+              <button
                 onClick={nextPage}
                 disabled={!canNextPage}
-                size="sm"
                 style={{
                   border: "1px solid #e0e0e0",
                   borderRadius: "6px",
                   padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canNextPage ? "pointer" : "not-allowed",
+                  opacity: canNextPage ? 1 : 0.5,
                 }}
               >
                 {">"}
-              </Button>
-              <Button
-                color="light"
+              </button>
+              <button
                 onClick={() => gotoPage(pageCount - 1)}
                 disabled={!canNextPage}
-                size="sm"
                 style={{
                   border: "1px solid #e0e0e0",
                   borderRadius: "6px",
                   padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canNextPage ? "pointer" : "not-allowed",
+                  opacity: canNextPage ? 1 : 0.5,
                 }}
               >
                 {">>"}
-              </Button>
+              </button>
             </div>
           </Col>
         </Row>
@@ -518,8 +516,7 @@ const CelebratyList = () => {
           <div className="d-flex flex-wrap gap-2 align-items-center">
             {/* Fixed Button */}
             <Link
-            to={`/dashboard/timeline-list/${celebrity?._id}`}
-              className="btn"
+              to={`/dashboard/timeline-list/${celebrity._id}`}
               style={{
                 backgroundColor: "#F5F5F5",
                 color: "#333",
@@ -528,7 +525,8 @@ const CelebratyList = () => {
                 fontSize: "14px",
                 fontWeight: "500",
                 border: "none",
-                cursor: "default",
+                textDecoration: "none",
+                display: "inline-block",
               }}
             >
               Fixed
@@ -546,7 +544,7 @@ const CelebratyList = () => {
                 fontWeight: "500",
                 border: "none",
                 textDecoration: "none",
-                cursor: "pointer",
+                display: "inline-block",
               }}
             >
               Profession
@@ -557,13 +555,14 @@ const CelebratyList = () => {
               to={`/dashboard/customoption-list/${celebrity._id}`}
               className="theme-btn bg-theme"
               style={{
-                
                 color: "white",
                 borderRadius: "100px",
                 padding: "8px 16px",
                 fontSize: "14px",
                 fontWeight: "500",
                 border: "none",
+                textDecoration: "none",
+                display: "inline-block",
               }}
             >
               Custom
@@ -614,19 +613,18 @@ const CelebratyList = () => {
             <PrivilegeAccess resource={RESOURCES.CELEBRITY} action={OPERATIONS.EDIT}>
               <Link
                 to={`/dashboard/update-celebrity/${celebrity._id}`}
+                className="theme-edit-btn"
                 style={{
                   backgroundColor: "#4285F41F",
                   color: "#1E90FF",
                   border: "none",
-                  borderRadius: "4px",
-                  width:"36px",
-                  height:"36px",
+                  borderRadius: "6px",
+                  width: "40px",
+                  height: "40px",
                   textDecoration: "none",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "40px",
-                  height: "40px",
                 }}
               >
                 <Pencil size={20} strokeWidth="2" />
@@ -635,8 +633,9 @@ const CelebratyList = () => {
 
             {/* Delete Button */}
             <PrivilegeAccess resource={RESOURCES.CELEBRITY} action={OPERATIONS.DELETE}>
-              <Button
+              <button
                 onClick={() => handleDeleteClick(celebrity._id)}
+                className="theme-delete-btn"
                 style={{
                   backgroundColor: "#FFE5E5",
                   color: "#FF5555",
@@ -648,10 +647,11 @@ const CelebratyList = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  cursor: "pointer",
                 }}
               >
                 <Trash size={20} color="#BA2526" />
-              </Button>
+              </button>
             </PrivilegeAccess>
           </div>
         );
@@ -695,16 +695,15 @@ const CelebratyList = () => {
 
         {/* ========== DELETE CONFIRMATION MODAL ========== */}
         <DeleteConfirmModal
-  isOpen={deleteModalOpen}
-  toggle={handleDeleteCancel}
-  onConfirm={handleDeleteConfirm}
-  title="Delete Celebrity"
-  message="This action will permanently delete all related data including movies, series, elections, positions, timeline, and trivia entries."
-  confirmText="Yes, Delete"
-  cancelText="Cancel"
-  confirmColor="danger"
-/>
-
+          isOpen={deleteModalOpen}
+          toggle={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Celebrity"
+          message="This action will permanently delete all related data including movies, series, elections, positions, timeline, and trivia entries."
+          confirmText="Yes, Delete"
+          cancelText="Cancel"
+          confirmColor="danger"
+        />
       </div>
     </Fragment>
   );

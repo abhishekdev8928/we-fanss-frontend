@@ -6,7 +6,6 @@ import {
   Table,
   Row,
   Col,
-  Button,
   Input,
   Modal,
   ModalHeader,
@@ -25,9 +24,9 @@ import {
 } from "react-table";
 import PropTypes from "prop-types";
 import Breadcrumbs from "../../components/Common/Breadcrumb";
-import deleteimg from "../../assets/images/delete.png";
 import { toast } from "react-toastify";
 import Select from "react-select";
+import { Plus, Search, Pencil, Trash } from "lucide-react";
 import {
   fetchSectionTemplate,
   addSectionTemplate,
@@ -40,8 +39,11 @@ import {
 import PrivilegeAccess from "../../components/protection/PrivilegeAccess";
 import { RESOURCES, OPERATIONS } from "../../constant/privilegeConstants";
 import { usePrivilegeStore } from "../../config/store/privilegeStore";
-import { formatDateTime } from "../../utils/dateTimeHelper";
+import DeleteConfirmModal from "../../components/Modals/DeleteModal";
 
+// ========================================
+// GLOBAL FILTER COMPONENT
+// ========================================
 function GlobalFilter({
   preGlobalFilteredRows,
   globalFilter,
@@ -56,16 +58,34 @@ function GlobalFilter({
 
   return (
     <Col md={4}>
-      <Input
-        type="text"
-        className="form-control"
-        placeholder={`Search ${count} records...`}
-        value={value || ""}
-        onChange={(e) => {
-          setValue(e.target.value);
-          onChange(e.target.value);
-        }}
-      />
+      <div style={{ position: "relative" }}>
+        <Input
+          type="text"
+          className="form-control"
+          placeholder="Search record..."
+          value={value || ""}
+          onChange={(e) => {
+            setValue(e.target.value);
+            onChange(e.target.value);
+          }}
+          style={{
+            borderRadius: "8px",
+            border: "1px solid #e0e0e0",
+            padding: "10px 40px 10px 16px",
+          }}
+        />
+        <Search
+          size={18}
+          style={{
+            position: "absolute",
+            right: "12px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#999",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
     </Col>
   );
 }
@@ -74,6 +94,9 @@ function Filter() {
   return null;
 }
 
+// ========================================
+// TABLE CONTAINER COMPONENT
+// ========================================
 const TableContainer = ({
   columns,
   data,
@@ -120,20 +143,27 @@ const TableContainer = ({
 
   return (
     <Fragment>
-      <Row className="mb-2">
+      {/* HEADER ROW - Page Size, Search, Add Button */}
+      <Row className="mb-3">
         <Col md={2}>
           <select
             className="form-select"
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
+            style={{
+              borderRadius: "8px",
+              border: "1px solid #e0e0e0",
+              padding: "10px 16px",
+            }}
           >
-            {[5, 10, 20].map((size) => (
+            {[5, 10, 20, 50].map((size) => (
               <option key={size} value={size}>
                 Show {size}
               </option>
             ))}
           </select>
         </Col>
+
         {isGlobalFilter && (
           <GlobalFilter
             preGlobalFilteredRows={preGlobalFilteredRows}
@@ -141,43 +171,86 @@ const TableContainer = ({
             setGlobalFilter={setGlobalFilter}
           />
         )}
+
         <Col md={6}>
           <PrivilegeAccess
             resource={RESOURCES.SECTION_TEMPLATE}
             action={OPERATIONS.ADD}
           >
             <div className="d-flex justify-content-end">
-              <Button color="primary" onClick={() => setModalOpen(true)}>
-                Add
-              </Button>
+              <button
+                onClick={() => setModalOpen(true)}
+                className="theme-btn bg-theme"
+              >
+                <Plus size={20} />
+                Add Section Template
+              </button>
             </div>
           </PrivilegeAccess>
         </Col>
       </Row>
 
+      {/* TABLE */}
       <div className="table-responsive react-table">
-        <Table bordered hover {...getTableProps()} className={className}>
-          <thead className="table-light table-nowrap">
+        <Table
+          {...getTableProps()}
+          className={className}
+          style={{ borderCollapse: "separate", borderSpacing: "0" }}
+        >
+          <thead style={{ backgroundColor: "#F5F5F5" }}>
             {headerGroups.map((headerGroup) => (
               <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
                 {headerGroup.headers.map((column) => (
-                  <th key={column.id}>
+                  <th
+                    key={column.id}
+                    style={{
+                      padding: "16px",
+                      fontWeight: "600",
+                      fontSize: "14px",
+                      color: "#666",
+                      borderBottom: "none",
+                    }}
+                  >
                     <div {...column.getSortByToggleProps()}>
                       {column.render("Header")}
+                      {column.isSorted ? (
+                        column.isSortedDesc ? (
+                          <i className="bx bx-chevron-down ms-1"></i>
+                        ) : (
+                          <i className="bx bx-chevron-up ms-1"></i>
+                        )
+                      ) : (
+                        ""
+                      )}
                     </div>
                   </th>
                 ))}
               </tr>
             ))}
           </thead>
+
           <tbody {...getTableBodyProps()}>
             {page.length > 0 ? (
               page.map((row) => {
                 prepareRow(row);
                 return (
-                  <tr {...row.getRowProps()} key={row.id}>
+                  <tr
+                    {...row.getRowProps()}
+                    key={row.id}
+                    style={{
+                      borderBottom: "1px solid #f0f0f0",
+                    }}
+                  >
                     {row.cells.map((cell) => (
-                      <td {...cell.getCellProps()} key={cell.column.id}>
+                      <td
+                        {...cell.getCellProps()}
+                        key={cell.column.id}
+                        style={{
+                          padding: "16px",
+                          fontSize: "14px",
+                          color: "#333",
+                        }}
+                      >
                         {cell.render("Cell")}
                       </td>
                     ))}
@@ -187,10 +260,8 @@ const TableContainer = ({
             ) : (
               <tr>
                 <td colSpan={columns.length} className="text-center py-4">
-                  <div className="text-muted">
-                    <i className="mdi mdi-information-outline me-2"></i>
-                    No data available
-                  </div>
+                  <i className="bx bx-info-circle me-2"></i>
+                  No section templates found
                 </td>
               </tr>
             )}
@@ -198,56 +269,107 @@ const TableContainer = ({
         </Table>
       </div>
 
-      <Row className="justify-content-md-end justify-content-center align-items-center mt-3">
-        <Col className="col-md-auto">
-          <div className="d-flex gap-1">
-            <Button
-              color="primary"
-              onClick={() => gotoPage(0)}
-              disabled={!canPreviousPage}
-            >
-              {"<<"}
-            </Button>
-            <Button
-              color="primary"
-              onClick={previousPage}
-              disabled={!canPreviousPage}
-            >
-              {"<"}
-            </Button>
-          </div>
-        </Col>
-        <Col className="col-md-auto d-none d-md-block">
-          Page{" "}
-          <strong>
-            {pageIndex + 1} of {pageOptions.length || 1}
-          </strong>
-        </Col>
-        <Col className="col-md-auto">
-          <Input
-            type="number"
-            min={1}
-            max={pageOptions.length || 1}
-            style={{ width: 70 }}
-            value={pageIndex + 1}
-            onChange={(e) => gotoPage(Number(e.target.value) - 1)}
-          />
-        </Col>
-        <Col className="col-md-auto">
-          <div className="d-flex gap-1">
-            <Button color="primary" onClick={nextPage} disabled={!canNextPage}>
-              {">"}
-            </Button>
-            <Button
-              color="primary"
-              onClick={() => gotoPage(pageCount - 1)}
-              disabled={!canNextPage}
-            >
-              {">>"}
-            </Button>
-          </div>
-        </Col>
-      </Row>
+      {/* PAGINATION */}
+      {page.length > 0 && (
+        <Row className="justify-content-end align-items-center mt-4">
+          <Col className="col-auto">
+            <div className="d-flex gap-2 align-items-center">
+              <button
+                onClick={() => gotoPage(0)}
+                disabled={!canPreviousPage}
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canPreviousPage ? "pointer" : "not-allowed",
+                  opacity: canPreviousPage ? 1 : 0.5,
+                }}
+              >
+                {"<<"}
+              </button>
+              <button
+                onClick={previousPage}
+                disabled={!canPreviousPage}
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canPreviousPage ? "pointer" : "not-allowed",
+                  opacity: canPreviousPage ? 1 : 0.5,
+                }}
+              >
+                {"<"}
+              </button>
+
+              <select
+                className="form-select"
+                value={pageIndex}
+                onChange={(e) => gotoPage(Number(e.target.value))}
+                style={{
+                  width: "140px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
+                {pageOptions.map((pageNum) => (
+                  <option key={pageNum} value={pageNum}>
+                    Page {pageNum + 1} of {pageOptions.length}
+                  </option>
+                ))}
+              </select>
+
+              <Input
+                type="number"
+                min={1}
+                max={pageOptions.length}
+                style={{
+                  width: "70px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+                value={pageIndex + 1}
+                onChange={(e) => {
+                  const page = e.target.value ? Number(e.target.value) - 1 : 0;
+                  gotoPage(page);
+                }}
+              />
+
+              <button
+                onClick={nextPage}
+                disabled={!canNextPage}
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canNextPage ? "pointer" : "not-allowed",
+                  opacity: canNextPage ? 1 : 0.5,
+                }}
+              >
+                {">"}
+              </button>
+              <button
+                onClick={() => gotoPage(pageCount - 1)}
+                disabled={!canNextPage}
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  backgroundColor: "white",
+                  cursor: canNextPage ? "pointer" : "not-allowed",
+                  opacity: canNextPage ? 1 : 0.5,
+                }}
+              >
+                {">>"}
+              </button>
+            </div>
+          </Col>
+        </Row>
+      )}
     </Fragment>
   );
 };
@@ -261,6 +383,9 @@ TableContainer.propTypes = {
   setModalOpen: PropTypes.func.isRequired,
 };
 
+// ========================================
+// MAIN SECTION TEMPLATE LIST COMPONENT
+// ========================================
 const SectionTemplateList = () => {
   const [sectionTemplate, setSectionTemplate] = useState({
     title: "",
@@ -269,20 +394,24 @@ const SectionTemplateList = () => {
 
   const [templateList, setTemplateList] = useState([]);
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [editId, setEditId] = useState(null);
   const [errors, setErrors] = useState({});
   const [sectionsOptions, setSectionsOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const { hasPermission } = usePrivilegeStore();
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const result = await fetchSectionTemplate();
       setTemplateList(result.data || []);
     } catch (error) {
       toast.error(error.message || "Failed to load section templates.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -291,7 +420,7 @@ const SectionTemplateList = () => {
       const result = await getSectionsOptions();
       const options = (result.data || []).map((item) => ({
         value: item._id,
-        label: item.name?.trim() || item.name,
+        label: (item.name && item.name.trim()) || item.name,
       }));
       setSectionsOptions(options);
     } catch (error) {
@@ -315,12 +444,14 @@ const SectionTemplateList = () => {
     try {
       const result = await getSectionTemplateById(id);
       const templateData = result.data;
-      
+
       setSectionTemplate({
         title: templateData.title || "",
-        sections: templateData.sections ? templateData.sections.map((sec) => sec._id || sec) : [],
+        sections: templateData.sections
+          ? templateData.sections.map((sec) => sec._id || sec)
+          : [],
       });
-      
+
       setEditId(templateData._id);
       setIsAddEditModalOpen(true);
     } catch (error) {
@@ -330,11 +461,11 @@ const SectionTemplateList = () => {
 
   const handleDeleteClick = (id) => {
     setDeleteId(id);
-    setIsDeleteModalOpen(true);
+    setDeleteModalOpen(true);
   };
 
-  const handleDeleteModalClose = () => {
-    setIsDeleteModalOpen(false);
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
     setDeleteId(null);
   };
 
@@ -343,7 +474,8 @@ const SectionTemplateList = () => {
     try {
       const result = await deleteSectionTemplate(deleteId);
       toast.success(result.message || "Deleted successfully");
-      setIsDeleteModalOpen(false);
+      setDeleteModalOpen(false);
+      setDeleteId(null);
       fetchData();
     } catch (error) {
       toast.error(error.message || "Delete failed");
@@ -353,6 +485,7 @@ const SectionTemplateList = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setSectionTemplate({ ...sectionTemplate, [name]: value });
+    setErrors({ ...errors, [name]: "" });
   };
 
   const handleAddEditModalClose = () => {
@@ -384,7 +517,7 @@ const SectionTemplateList = () => {
         title: sectionTemplate.title,
         sections: sectionTemplate.sections,
       };
-      
+
       let response;
 
       if (editId) {
@@ -394,7 +527,8 @@ const SectionTemplateList = () => {
       }
 
       if (!response.success) {
-        const errorMsg = response.message || response.error?.message || "Operation failed";
+        const errorMsg =
+          response.message || (response.error && response.error.message) || "Operation failed";
 
         if (errorMsg.toLowerCase().includes("already exist")) {
           setErrors({ title: errorMsg });
@@ -406,9 +540,9 @@ const SectionTemplateList = () => {
 
       toast.success(
         response.message ||
-        (editId ? "Updated successfully" : "Added successfully")
+          (editId ? "Updated successfully" : "Added successfully")
       );
-      
+
       handleAddEditModalClose();
       setSectionTemplate({ title: "", sections: [] });
       setErrors({});
@@ -420,25 +554,59 @@ const SectionTemplateList = () => {
   };
 
   const canEdit = hasPermission(RESOURCES.SECTION_TEMPLATE, OPERATIONS.EDIT);
-  const canDelete = hasPermission(RESOURCES.SECTION_TEMPLATE, OPERATIONS.DELETE);
+  const canDelete = hasPermission(
+    RESOURCES.SECTION_TEMPLATE,
+    OPERATIONS.DELETE
+  );
   const hasAnyAction = canEdit || canDelete;
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
   const columns = [
-    { Header: "No.", accessor: (_row, i) => i + 1 },
+    {
+      Header: "No",
+      accessor: (_row, i) => i + 1,
+      disableSortBy: true,
+    },
     {
       Header: "Created Date",
       accessor: "createdAt",
-      Cell: ({ value }) => formatDateTime(value),
+      Cell: ({ value }) => formatDate(value),
     },
-    { Header: "Title", accessor: "title" },
+    {
+      Header: "Title",
+      accessor: "title",
+      Cell: ({ value }) => (
+        <strong style={{ fontWeight: "500" }}>{value}</strong>
+      ),
+    },
     {
       Header: "Sections",
       accessor: "sections",
+      disableSortBy: true,
       Cell: ({ value }) => {
         const count = Array.isArray(value) ? value.length : 0;
         return (
-          <span className="badge bg-soft-success text-success">
-            {count} {count === 1 ? 'section' : 'sections'}
+          <span
+            className="badge"
+            style={{
+              backgroundColor: "#E8F5E9",
+              color: "#2E7D32",
+              padding: "6px 12px",
+              borderRadius: "12px",
+              fontSize: "13px",
+              fontWeight: "500",
+            }}
+          >
+            {count} {count === 1 ? "section" : "sections"}
           </span>
         );
       },
@@ -458,13 +626,14 @@ const SectionTemplateList = () => {
               onChange={() =>
                 handleStatusChange(row.original.status, row.original._id)
               }
+              style={{
+                width: "48px",
+                height: "24px",
+                cursor: "pointer",
+                backgroundColor: isActive ? "#4285F4" : "#ccc",
+                borderColor: isActive ? "#1E90FF" : "#ccc",
+              }}
             />
-            <label
-              className="form-check-label"
-              htmlFor={`switch-${row.original._id}`}
-            >
-              {isActive ? "Active" : "Inactive"}
-            </label>
           </div>
         );
       },
@@ -473,33 +642,57 @@ const SectionTemplateList = () => {
 
   if (hasAnyAction) {
     columns.push({
-      Header: "Actions",
+      Header: "Options",
+      disableSortBy: true,
       Cell: ({ row }) => (
         <div className="d-flex gap-2">
           <PrivilegeAccess
             resource={RESOURCES.SECTION_TEMPLATE}
             action={OPERATIONS.EDIT}
           >
-            <Button
-              color="primary"
+            <button
               onClick={() => handleEdit(row.original._id)}
-              size="sm"
+              className="theme-edit-btn"
+              style={{
+                backgroundColor: "#4285F41F",
+                color: "#1E90FF",
+                border: "none",
+                borderRadius: "6px",
+                width: "40px",
+                height: "40px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
             >
-              Edit
-            </Button>
+              <Pencil size={20} strokeWidth="2" />
+            </button>
           </PrivilegeAccess>
 
           <PrivilegeAccess
             resource={RESOURCES.SECTION_TEMPLATE}
             action={OPERATIONS.DELETE}
           >
-            <Button
-              color="danger"
-              size="sm"
+            <button
               onClick={() => handleDeleteClick(row.original._id)}
+              className="theme-delete-btn"
+              style={{
+                backgroundColor: "#FFE5E5",
+                color: "#FF5555",
+                border: "none",
+                borderRadius: "6px",
+                padding: "8px 12px",
+                width: "40px",
+                height: "40px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
             >
-              Delete
-            </Button>
+              <Trash size={20} color="#BA2526" />
+            </button>
           </PrivilegeAccess>
         </div>
       ),
@@ -521,52 +714,78 @@ const SectionTemplateList = () => {
       <div className="page-content">
         <Container fluid>
           <Breadcrumbs
-            title="Section Template"
+            title="Section Template List"
             breadcrumbItems={breadcrumbItems}
           />
-          <Card>
+
+          <Card
+            style={{
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              borderRadius: "12px",
+            }}
+          >
             <CardBody>
-              <TableContainer
-                columns={columns}
-                data={templateList}
-                customPageSize={10}
-                isGlobalFilter={true}
-                setModalOpen={setIsAddEditModalOpen}
-              />
+              {loading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  <p className="mt-2">Loading section templates...</p>
+                </div>
+              ) : (
+                <TableContainer
+                  columns={columns}
+                  data={templateList}
+                  customPageSize={10}
+                  isGlobalFilter={true}
+                  setModalOpen={setIsAddEditModalOpen}
+                />
+              )}
             </CardBody>
           </Card>
         </Container>
 
         {/* ADD / EDIT MODAL */}
-        <Modal 
-          isOpen={isAddEditModalOpen} 
+        <Modal
+          isOpen={isAddEditModalOpen}
           toggle={() => setIsAddEditModalOpen(!isAddEditModalOpen)}
           size="md"
         >
-          <ModalHeader toggle={() => setIsAddEditModalOpen(!isAddEditModalOpen)}>
+          <ModalHeader
+            toggle={() => setIsAddEditModalOpen(!isAddEditModalOpen)}
+          >
             {!editId ? "Add" : "Edit"} Section Template
           </ModalHeader>
           <form onSubmit={handleSubmit}>
             <ModalBody>
               <div className="mb-3">
-                <Label>Title <span className="text-danger">*</span></Label>
+                <Label>
+                  Title <span className="text-danger">*</span>
+                </Label>
                 <Input
                   type="text"
                   value={sectionTemplate.title || ""}
                   onChange={handleInputChange}
                   name="title"
                   placeholder="Enter template title"
-                  invalid={!!errors.title}
+                  className={errors.title ? "is-invalid" : ""}
+                  style={{
+                    borderRadius: "8px",
+                    padding: "10px 16px",
+                  }}
                 />
                 {errors.title && (
-                  <div className="text-danger mt-1" style={{ fontSize: '0.875rem' }}>
+                  <div className="invalid-feedback d-block">
                     {errors.title}
                   </div>
                 )}
               </div>
 
               <div className="mb-3">
-                <Label>Select Sections <span className="text-danger">*</span></Label>
+                <Label>
+                  Select Sections <span className="text-danger">*</span>
+                </Label>
                 <Select
                   isMulti
                   name="sections"
@@ -577,54 +796,64 @@ const SectionTemplateList = () => {
                   onChange={(selectedOptions) =>
                     setSectionTemplate((prev) => ({
                       ...prev,
-                      sections: selectedOptions ? selectedOptions.map((opt) => opt.value) : [],
+                      sections: selectedOptions
+                        ? selectedOptions.map((opt) => opt.value)
+                        : [],
                     }))
                   }
                   placeholder="Choose sections..."
                 />
                 {errors.sections && (
-                  <span className="text-danger">{errors.sections}</span>
+                  <div className="text-danger mt-1" style={{ fontSize: "0.875rem" }}>
+                    {errors.sections}
+                  </div>
                 )}
               </div>
             </ModalBody>
             <ModalFooter>
-              <Button 
-                color="primary"
+              <button
                 type="submit"
+                className="theme-btn bg-theme"
+                style={{
+                  color: "white",
+                  borderRadius: "8px",
+                  padding: "8px 20px",
+                  border: "none",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
               >
                 {!editId ? "Add" : "Update"}
-              </Button>
-              <Button color="secondary" onClick={handleAddEditModalClose}>
+              </button>
+              <button
+                type="button"
+                onClick={handleAddEditModalClose}
+                style={{
+                  borderRadius: "8px",
+                  padding: "8px 20px",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
                 Cancel
-              </Button>
+              </button>
             </ModalFooter>
           </form>
         </Modal>
 
         {/* DELETE MODAL */}
-        <Modal isOpen={isDeleteModalOpen} toggle={() => setIsDeleteModalOpen(false)}>
-          <ModalBody className="mt-3">
-            <h4 className="p-3 text-center">
-              Do you really want to <br /> delete this section template?
-            </h4>
-            <div className="d-flex justify-content-center">
-              <img
-                src={deleteimg}
-                alt="Delete Icon"
-                width={"70%"}
-                className="mb-3 m-auto"
-              />
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button color="danger" onClick={handleDeleteConfirm}>
-              Delete
-            </Button>
-            <Button color="secondary" onClick={handleDeleteModalClose}>
-              Cancel
-            </Button>
-          </ModalFooter>
-        </Modal>
+        <DeleteConfirmModal
+          isOpen={deleteModalOpen}
+          toggle={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Section Template"
+          message="Are you sure you want to delete this section template? This action cannot be undone."
+          confirmText="Yes, Delete"
+          cancelText="Cancel"
+          confirmColor="danger"
+        />
       </div>
     </Fragment>
   );

@@ -189,9 +189,12 @@ const CustomSectionTabs = () => {
                 </div>
                 <div className="text-end">
                   <small className="text-muted">
-                    Celebrity List / Custom Sections
-                    {celebrityName && ` / ${celebrityName}`}
-                  </small>
+                                <Link to="/dashboard/celebrity-list" className="text-decoration-none text-muted">
+                                  Celebrity List
+                                </Link>
+                                {" / Custom Section"}
+                              </small>
+                
                 </div>
               </div>
 
@@ -283,8 +286,8 @@ const CustomSectionTabs = () => {
     }}
   >
     {/* Section Header with Actions */}
-    <div className="d-flex justify-content-between mb-4">
-      <h3 style={{ fontSize: "24px", fontWeight: "600", marginBottom: 0 }}>
+    <div className="d-flex align-items-center justify-content-between mb-4">
+      <h3 style={{ fontSize: "24px", fontWeight: "500", marginBottom: 0 }}>
         {activeSection.title}
       </h3>
 
@@ -409,16 +412,7 @@ const CustomSectionTabs = () => {
       dangerouslySetInnerHTML={{ __html: activeSection.description }}
     />
 
-    {/* Back Button */}
-    <div className="mt-4">
-      <Button
-        color="secondary"
-        onClick={() => navigate("/dashboard/celebrity-list")}
-        style={{ padding: "10px 20px", borderRadius: "8px" }}
-      >
-        ← Back to Celebrity List
-      </Button>
-    </div>
+   
     </div>
   </div>
 )}
@@ -428,13 +422,6 @@ const CustomSectionTabs = () => {
                   {sections.length === 0 && (
                     <div className="text-center py-5">
                       <p className="text-muted mb-3">No custom sections found</p>
-                      <Link
-                        to={`/dashboard/add-customoption/${celebrityId}`}
-                        className="btn btn-primary"
-                      >
-                        <Plus size={18} className="me-2" />
-                        Add First Section
-                      </Link>
                     </div>
                   )}
                 </>

@@ -187,11 +187,11 @@ const router = createBrowserRouter([
      
 
       {
-        path: "references-list/:celebrityId",
+        path: "references-list/:id",
         element: <ReferencesList />,
       },
 {
-  path: "related-personalities-list/:celebrityId",
+  path: "related-personalities-list/:id",
   element: <RelatedPersonalitiesList />,
 },
 

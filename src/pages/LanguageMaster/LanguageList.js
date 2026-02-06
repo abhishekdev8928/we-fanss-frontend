@@ -14,7 +14,6 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  Alert,
 } from "reactstrap";
 import {
   useTable,
@@ -26,8 +25,8 @@ import {
   usePagination,
 } from "react-table";
 import Breadcrumbs from "../../components/Common/Breadcrumb";
-import deleteimg from "../../assets/images/delete.png";
 import { toast } from "react-toastify";
+import { Plus, Search, Pencil, Trash } from "lucide-react";
 import {
   fetchLanguage,
   addLanguage,
@@ -37,9 +36,16 @@ import {
   updateLanguageStatus,
 } from "../../api/LanguageApi";
 import { usePrivilegeStore } from "../../config/store/privilegeStore";
+import DeleteConfirmModal from "../../components/Modals/DeleteModal";
 
-// ================= GLOBAL FILTER ==================
-function GlobalFilter({ preGlobalFilteredRows, globalFilter, setGlobalFilter }) {
+// ========================================
+// GLOBAL FILTER COMPONENT
+// ========================================
+function GlobalFilter({
+  preGlobalFilteredRows,
+  globalFilter,
+  setGlobalFilter,
+}) {
   const count = preGlobalFilteredRows.length;
   const [value, setValue] = useState(globalFilter);
 
@@ -49,32 +55,52 @@ function GlobalFilter({ preGlobalFilteredRows, globalFilter, setGlobalFilter }) 
 
   return (
     <Col md={4}>
-      <Input
-        type="text"
-        className="form-control"
-        placeholder={`Search ${count} records...`}
-        value={value || ""}
-        onChange={(e) => {
-          setValue(e.target.value);
-          onChange(e.target.value);
-        }}
-      />
+      <div style={{ position: "relative" }}>
+        <Input
+          type="text"
+          className="form-control"
+          placeholder="Search record..."
+          value={value || ""}
+          onChange={(e) => {
+            setValue(e.target.value);
+            onChange(e.target.value);
+          }}
+          style={{
+            borderRadius: "8px",
+            border: "1px solid #e0e0e0",
+            padding: "10px 40px 10px 16px",
+          }}
+        />
+        <Search
+          size={18}
+          style={{
+            position: "absolute",
+            right: "12px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#999",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
     </Col>
   );
 }
-
 
 function Filter() {
   return null;
 }
 
-
+// ========================================
+// TABLE CONTAINER COMPONENT
+// ========================================
 const TableContainer = ({
   columns,
   data,
   customPageSize,
   className,
   isGlobalFilter,
+  onAddClick,
 }) => {
   const {
     getTableProps,
@@ -114,20 +140,27 @@ const TableContainer = ({
 
   return (
     <Fragment>
-      <Row className="mb-2">
+      {/* HEADER ROW - Page Size, Search, Add Button */}
+      <Row className="mb-3">
         <Col md={2}>
           <select
             className="form-select"
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
+            style={{
+              borderRadius: "8px",
+              border: "1px solid #e0e0e0",
+              padding: "10px 16px",
+            }}
           >
-            {[5, 10, 20].map((size) => (
+            {[5, 10, 20, 50].map((size) => (
               <option key={size} value={size}>
                 Show {size}
               </option>
             ))}
           </select>
         </Col>
+
         {isGlobalFilter && (
           <GlobalFilter
             preGlobalFilteredRows={preGlobalFilteredRows}
@@ -135,31 +168,84 @@ const TableContainer = ({
             setGlobalFilter={setGlobalFilter}
           />
         )}
+
+        <Col md={6}>
+          <PrivilegeAccess resource={RESOURCES.LANGUAGE} action={OPERATIONS.ADD}>
+            <div className="d-flex justify-content-end">
+              <button
+                onClick={onAddClick}
+                className="theme-btn bg-theme"
+                
+              >
+                <Plus size={20} />
+                Add Language
+              </button>
+            </div>
+          </PrivilegeAccess>
+        </Col>
       </Row>
 
+      {/* TABLE */}
       <div className="table-responsive react-table">
-        <Table bordered hover {...getTableProps()} className={className}>
-          <thead className="table-light table-nowrap">
+        <Table
+          {...getTableProps()}
+          className={className}
+          style={{ borderCollapse: "separate", borderSpacing: "0" }}
+        >
+          <thead style={{ backgroundColor: "#F5F5F5" }}>
             {headerGroups.map((headerGroup) => (
               <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
                 {headerGroup.headers.map((column) => (
-                  <th key={column.id}>
+                  <th
+                    key={column.id}
+                    style={{
+                      padding: "16px",
+                      fontWeight: "600",
+                      fontSize: "14px",
+                      color: "#666",
+                      borderBottom: "none",
+                    }}
+                  >
                     <div {...column.getSortByToggleProps()}>
                       {column.render("Header")}
+                      {column.isSorted ? (
+                        column.isSortedDesc ? (
+                          <i className="bx bx-chevron-down ms-1"></i>
+                        ) : (
+                          <i className="bx bx-chevron-up ms-1"></i>
+                        )
+                      ) : (
+                        ""
+                      )}
                     </div>
                   </th>
                 ))}
               </tr>
             ))}
           </thead>
+
           <tbody {...getTableBodyProps()}>
             {page.length > 0 ? (
               page.map((row) => {
                 prepareRow(row);
                 return (
-                  <tr {...row.getRowProps()} key={row.id}>
+                  <tr
+                    {...row.getRowProps()}
+                    key={row.id}
+                    style={{
+                      borderBottom: "1px solid #f0f0f0",
+                    }}
+                  >
                     {row.cells.map((cell) => (
-                      <td {...cell.getCellProps()} key={cell.column.id}>
+                      <td
+                        {...cell.getCellProps()}
+                        key={cell.column.id}
+                        style={{
+                          padding: "16px",
+                          fontSize: "14px",
+                          color: "#333",
+                        }}
+                      >
                         {cell.render("Cell")}
                       </td>
                     ))}
@@ -169,10 +255,8 @@ const TableContainer = ({
             ) : (
               <tr>
                 <td colSpan={columns.length} className="text-center py-4">
-                  <div className="text-muted">
-                    <i className="mdi mdi-information-outline me-2"></i>
-                    No data available
-                  </div>
+                  <i className="bx bx-info-circle me-2"></i>
+                  No languages found
                 </td>
               </tr>
             )}
@@ -180,52 +264,96 @@ const TableContainer = ({
         </Table>
       </div>
 
-      {/* Pagination */}
+      {/* PAGINATION */}
       {page.length > 0 && (
-        <Row className="justify-content-md-end justify-content-center align-items-center mt-3">
-          <Col className="col-md-auto">
-            <div className="d-flex gap-1">
+        <Row className="justify-content-end align-items-center mt-4">
+          <Col className="col-auto">
+            <div className="d-flex gap-2 align-items-center">
               <Button
-                color="primary"
+                color="light"
                 onClick={() => gotoPage(0)}
                 disabled={!canPreviousPage}
+                size="sm"
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
               >
                 {"<<"}
               </Button>
               <Button
-                color="primary"
+                color="light"
                 onClick={previousPage}
                 disabled={!canPreviousPage}
+                size="sm"
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
               >
                 {"<"}
               </Button>
-            </div>
-          </Col>
-          <Col className="col-md-auto d-none d-md-block">
-            Page{" "}
-            <strong>
-              {pageIndex + 1} of {pageOptions.length}
-            </strong>
-          </Col>
-          <Col className="col-md-auto">
-            <Input
-              type="number"
-              min={1}
-              max={pageOptions.length}
-              style={{ width: 70 }}
-              value={pageIndex + 1}
-              onChange={(e) => gotoPage(Number(e.target.value) - 1)}
-            />
-          </Col>
-          <Col className="col-md-auto">
-            <div className="d-flex gap-1">
-              <Button color="primary" onClick={nextPage} disabled={!canNextPage}>
+
+              <select
+                className="form-select"
+                value={pageIndex}
+                onChange={(e) => gotoPage(Number(e.target.value))}
+                style={{
+                  width: "140px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
+                {pageOptions.map((pageNum) => (
+                  <option key={pageNum} value={pageNum}>
+                    Page {pageNum + 1} of {pageOptions.length}
+                  </option>
+                ))}
+              </select>
+
+              <Input
+                type="number"
+                min={1}
+                max={pageOptions.length}
+                style={{
+                  width: "70px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+                value={pageIndex + 1}
+                onChange={(e) => {
+                  const page = e.target.value ? Number(e.target.value) - 1 : 0;
+                  gotoPage(page);
+                }}
+              />
+
+              <Button
+                color="light"
+                onClick={nextPage}
+                disabled={!canNextPage}
+                size="sm"
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
                 {">"}
               </Button>
               <Button
-                color="primary"
+                color="light"
                 onClick={() => gotoPage(pageCount - 1)}
                 disabled={!canNextPage}
+                size="sm"
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
               >
                 {">>"}
               </Button>
@@ -237,11 +365,15 @@ const TableContainer = ({
   );
 };
 
-
+// ========================================
+// MAIN LANGUAGE MASTER LIST COMPONENT
+// ========================================
 const LanguageMasterList = () => {
+  // ========== STATE ==========
   const [language, setLanguage] = useState({ name: "", code: "" });
   const [categorylist, setcategorylist] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [itemIdToEdit, setItemIdToEdit] = useState(null);
   const [errors, setErrors] = useState({});
@@ -249,14 +381,25 @@ const LanguageMasterList = () => {
 
   const { hasPermission } = usePrivilegeStore();
 
-  // ================= FETCH DATA =================
+  // ========== HELPER FUNCTIONS ==========
+  const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  // ========== API CALLS ==========
   const fetchData = async () => {
     setLoading(true);
     try {
       const response = await fetchLanguage();
-      
+
       if (response?.success) {
-        setcategorylist(response.data || []);
+        setcategorylist(response?.data || []);
       } else {
         setcategorylist([]);
         toast.error(response?.message || "Failed to load languages");
@@ -264,68 +407,79 @@ const LanguageMasterList = () => {
     } catch (error) {
       console.error("Error fetching languages:", error);
       setcategorylist([]);
-      const errorMessage = error?.response?.data?.message || error?.message || "Failed to load languages";
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to load languages";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // ================= STATUS CHANGE =================
-  const handleChange = async (currentStatus, id) => {
+  const handleStatusChange = async (currentStatus, id) => {
     const newStatus = currentStatus == 1 ? 0 : 1;
-    
+
     try {
       const response = await updateLanguageStatus(id, newStatus);
-      
+
       if (response?.success) {
-        toast.success(response.message || "Status updated successfully");
+        toast.success(response?.message || "Status updated successfully");
         await fetchData();
       } else {
         toast.error(response?.message || "Failed to update status");
       }
     } catch (error) {
       console.error("Error updating status:", error);
-      const errorMessage = error?.response?.data?.message || error?.message || "Failed to update status";
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to update status";
       toast.error(errorMessage);
     }
   };
 
-  // ================= EDIT =================
   const handleEdit = async (id) => {
     try {
       const response = await getLanguageById(id);
-      
+
       if (response?.success && response?.data) {
-        setLanguage({ 
-          name: response.data.name || "", 
-          code: response.data.code || ""
+        setLanguage({
+          name: response?.data?.name || "",
+          code: response?.data?.code || "",
         });
-        setItemIdToEdit(response.data._id);
+        setItemIdToEdit(response?.data?._id);
         setModalOpen(true);
       } else {
         toast.error(response?.message || "Failed to load language data");
       }
     } catch (error) {
       console.error("Error fetching language by ID:", error);
-      const errorMessage = error?.response?.data?.message || error?.message || "Failed to load language data";
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to load language data";
       toast.error(errorMessage);
     }
   };
 
-  // ================= DELETE =================
-  const handleDelete = (id) => {
+  const handleDeleteClick = (id) => {
     setDeleteId(id);
+    setDeleteModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (!deleteId) return;
-    
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) {
+      toast.error("No ID to delete.");
+      return;
+    }
+
     try {
       const response = await deleteLanguage(deleteId);
-      
+
       if (response?.success) {
-        toast.success(response.message || "Language deleted successfully");
+        toast.success(response?.message || "Language deleted successfully");
+        setDeleteModalOpen(false);
         setDeleteId(null);
         await fetchData();
       } else {
@@ -333,19 +487,26 @@ const LanguageMasterList = () => {
       }
     } catch (error) {
       console.error("Error deleting language:", error);
-      const errorMessage = error?.response?.data?.message || error?.message || "Failed to delete language";
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to delete language";
       toast.error(errorMessage);
     }
   };
 
-  // ================= ADD / UPDATE =================
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+    setDeleteId(null);
+  };
+
   const handleAddSubmit = async (e) => {
     e.preventDefault();
 
     // Basic validation
     const newErrors = {};
-    if (!language.name?.trim()) newErrors.name = "Name is required";
-    if (!language.code?.trim()) newErrors.code = "Code is required";
+    if (!language?.name?.trim()) newErrors.name = "Name is required";
+    if (!language?.code?.trim()) newErrors.code = "Code is required";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -354,16 +515,20 @@ const LanguageMasterList = () => {
 
     try {
       const payload = {
-        name: language.name.trim(),
-        code: language.code.trim(),
+        name: language?.name?.trim(),
+        code: language?.code?.trim(),
       };
 
-      const response = itemIdToEdit 
+      const response = itemIdToEdit
         ? await updateLanguage(itemIdToEdit, payload)
         : await addLanguage(payload);
 
       if (response?.success) {
-        const successMessage = response.message || (itemIdToEdit ? "Language updated successfully" : "Language added successfully");
+        const successMessage =
+          response?.message ||
+          (itemIdToEdit
+            ? "Language updated successfully"
+            : "Language added successfully");
         toast.success(successMessage);
         setLanguage({ name: "", code: "" });
         setErrors({});
@@ -375,22 +540,23 @@ const LanguageMasterList = () => {
       }
     } catch (error) {
       console.error("Error saving language:", error);
-      
+
       // Handle backend validation errors
       if (error?.response?.data?.error?.details) {
         const backendErrors = {};
-        error.response.data.error.details.forEach(detail => {
-          backendErrors[detail.field] = detail.message;
+        error?.response?.data?.error?.details?.forEach((detail) => {
+          backendErrors[detail?.field] = detail?.message;
         });
         setErrors(backendErrors);
       }
-      
-      const errorMessage = error?.response?.data?.message || error?.message || "Operation failed";
+
+      const errorMessage =
+        error?.response?.data?.message || error?.message || "Operation failed";
       toast.error(errorMessage);
     }
   };
 
-  // ================= MODAL HANDLERS =================
+  // ========== MODAL HANDLERS ==========
   const handleModalClose = () => {
     setModalOpen(false);
     setLanguage({ name: "", code: "" });
@@ -405,54 +571,80 @@ const LanguageMasterList = () => {
     setModalOpen(true);
   };
 
-  // ================= TABLE COLUMNS =================
-  const getTableColumns = () => {
-    const canEdit = hasPermission(RESOURCES.LANGUAGE, OPERATIONS.EDIT);
-    const canDelete = hasPermission(RESOURCES.LANGUAGE, OPERATIONS.DELETE);
-    const hasAnyAction = canEdit || canDelete;
+  // ========== EFFECTS ==========
+  useEffect(() => {
+    fetchData();
+  }, []);
 
+  // ========== PERMISSIONS ==========
+  const canEdit = hasPermission(RESOURCES.LANGUAGE, OPERATIONS.EDIT);
+  const canDelete = hasPermission(RESOURCES.LANGUAGE, OPERATIONS.DELETE);
+  const hasAnyAction = canEdit || canDelete;
+
+  // ========== TABLE COLUMNS ==========
+  const getTableColumns = () => {
     const baseColumns = [
-      { 
-        Header: "No.", 
+      {
+        Header: "No",
         accessor: (_row, i) => i + 1,
         disableSortBy: true,
       },
-      { 
-        Header: "Created Date", 
+      {
+        Header: "Created Date",
         accessor: "createdAt",
-        Cell: ({ value }) => {
-          if (!value) return "-";
-          return new Date(value).toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          });
-        },
+        Cell: ({ value }) => formatDate(value),
       },
-      { Header: "Name", accessor: "name" },
-      { Header: "Code", accessor: "code" },
+      {
+        Header: "Language Name",
+        accessor: "name",
+        Cell: ({ value }) => (
+          <strong style={{ fontWeight: "500" }}>{value}</strong>
+        ),
+      },
+      {
+        Header: "Code",
+        accessor: "code",
+        Cell: ({ value }) => (
+          <span
+            style={{
+              backgroundColor: "#F5F5F5",
+              padding: "4px 12px",
+              borderRadius: "4px",
+              fontWeight: "500",
+              fontSize: "13px",
+            }}
+          >
+            {value}
+          </span>
+        ),
+      },
       {
         Header: "Status",
         accessor: "status",
         Cell: ({ row }) => {
-          const isActive = row.original.status == 1;
+          const isActive = row?.original?.status == 1;
+
           return (
             <div className="form-check form-switch">
               <input
                 type="checkbox"
                 className="form-check-input"
-                id={`switch-${row.original._id}`}
+                id={`switch-${row?.original?._id}`}
                 checked={isActive}
                 onChange={() =>
-                  handleChange(row.original.status, row.original._id)
+                  handleStatusChange(
+                    row?.original?.status,
+                    row?.original?._id
+                  )
                 }
+                style={{
+                  width: "48px",
+                  height: "24px",
+                  cursor: "pointer",
+                  backgroundColor: isActive ? "#4285F4" : "#ccc",
+                  borderColor: isActive ? "#1E90FF" : "#ccc",
+                }}
               />
-              <label
-                className="form-check-label"
-                htmlFor={`switch-${row.original._id}`}
-              >
-                {isActive ? "Active" : "Inactive"}
-              </label>
             </div>
           );
         },
@@ -461,71 +653,101 @@ const LanguageMasterList = () => {
 
     if (hasAnyAction) {
       baseColumns.push({
-        Header: "Option",
+        Header: "Options",
         disableSortBy: true,
-        Cell: ({ row }) => (
-          <div className="d-flex gap-2">
-            <PrivilegeAccess resource={RESOURCES.LANGUAGE} action={OPERATIONS.EDIT}>
-              <Button
-                color="primary"
-                onClick={() => handleEdit(row.original._id)}
-                size="sm"
-              >
-                Edit
-              </Button>
-            </PrivilegeAccess>
+        Cell: ({ row }) => {
+          const languageItem = row?.original;
 
-            <PrivilegeAccess resource={RESOURCES.LANGUAGE} action={OPERATIONS.DELETE}>
-              <Button
-                color="danger"
-                size="sm"
-                onClick={() => handleDelete(row.original._id)}
+          return (
+            <div className="d-flex gap-2">
+              {/* Edit Button */}
+              <PrivilegeAccess
+                resource={RESOURCES.LANGUAGE}
+                action={OPERATIONS.EDIT}
               >
-                Delete
-              </Button>
-            </PrivilegeAccess>
-          </div>
-        ),
+                <Button
+                  onClick={() => handleEdit(languageItem?._id)}
+                  className="theme-edit-btn"
+                  style={{
+                    backgroundColor: "#4285F41F",
+                    flexShrink:"0",
+                    color: "#1E90FF",
+                    border: "none",
+                    borderRadius: "6px",
+                    width: "40px",
+                    height: "40px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Pencil size={20}  />
+                </Button>
+              </PrivilegeAccess>
+
+              {/* Delete Button */}
+              <PrivilegeAccess
+                resource={RESOURCES.LANGUAGE}
+                action={OPERATIONS.DELETE}
+              >
+                <Button
+                  onClick={() => handleDeleteClick(languageItem?._id)}
+                  className="theme-delete-btn"
+                  style={{
+                    backgroundColor: "#FFE5E5",
+                    color: "#FF5555",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "8px 12px",
+                    width: "40px",
+                    height: "40px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Trash size={20} color="#BA2526" />
+                </Button>
+              </PrivilegeAccess>
+            </div>
+          );
+        },
       });
     }
 
     return baseColumns;
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
+  // ========== BREADCRUMB ==========
   const breadcrumbItems = [
     { title: "Dashboard", link: "/" },
     { title: "Language Master", link: "#" },
   ];
 
+  // ========== RENDER ==========
   return (
     <Fragment>
       <div className="page-content">
         <Container fluid>
           <Breadcrumbs
-            title="Language Master"
+            title="Language Master List"
             breadcrumbItems={breadcrumbItems}
           />
 
-          <PrivilegeAccess resource={RESOURCES.LANGUAGE} action={OPERATIONS.ADD}>
-            <div className="d-flex justify-content-end mb-2">
-              <Button color="primary" onClick={handleModalOpen}>
-                Add Language
-              </Button>
-            </div>
-          </PrivilegeAccess>
-
-          <Card>
+          <Card
+            style={{
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              borderRadius: "12px",
+            }}
+          >
             <CardBody>
               {loading ? (
                 <div className="text-center py-5">
                   <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Loading...</span>
                   </div>
-                  <p className="mt-2 text-muted">Loading languages...</p>
+                  <p className="mt-2">Loading languages...</p>
                 </div>
               ) : (
                 <TableContainer
@@ -533,13 +755,14 @@ const LanguageMasterList = () => {
                   data={categorylist}
                   customPageSize={10}
                   isGlobalFilter={true}
+                  onAddClick={handleModalOpen}
                 />
               )}
             </CardBody>
           </Card>
         </Container>
 
-        {/* ADD / EDIT MODAL */}
+        {/* ========== ADD / EDIT MODAL ========== */}
         <Modal isOpen={modalOpen} toggle={handleModalClose}>
           <ModalHeader toggle={handleModalClose}>
             {!itemIdToEdit ? "Add" : "Edit"} Language
@@ -547,74 +770,96 @@ const LanguageMasterList = () => {
           <form onSubmit={handleAddSubmit}>
             <ModalBody>
               <div className="mb-3">
+                <label className="form-label">
+                  Language Name <span className="text-danger">*</span>
+                </label>
                 <Input
                   type="text"
-                  value={language.name || ""}
+                  value={language?.name || ""}
                   onChange={(e) => {
                     setLanguage({ ...language, name: e.target.value });
                     setErrors({ ...errors, name: "" });
                   }}
                   name="name"
-                  placeholder="Language Name"
-                  className={errors.name ? "is-invalid" : ""}
+                  placeholder="Enter language name"
+                  className={errors?.name ? "is-invalid" : ""}
+                  style={{
+                    borderRadius: "8px",
+                    padding: "10px 16px",
+                  }}
                 />
-                {errors.name && (
-                  <div className="invalid-feedback d-block">{errors.name}</div>
+                {errors?.name && (
+                  <div className="invalid-feedback d-block">
+                    {errors?.name}
+                  </div>
                 )}
               </div>
 
               <div className="mb-3">
+                <label className="form-label">
+                  Language Code <span className="text-danger">*</span>
+                </label>
                 <Input
                   type="text"
-                  value={language.code || ""}
+                  value={language?.code || ""}
                   onChange={(e) => {
                     setLanguage({ ...language, code: e.target.value });
                     setErrors({ ...errors, code: "" });
                   }}
                   name="code"
-                  placeholder="Language Code (e.g., EN, HI)"
-                  className={errors.code ? "is-invalid" : ""}
+                  placeholder="e.g., EN, HI, ES"
+                  className={errors?.code ? "is-invalid" : ""}
+                  style={{
+                    borderRadius: "8px",
+                    padding: "10px 16px",
+                  }}
                 />
-                {errors.code && (
-                  <div className="invalid-feedback d-block">{errors.code}</div>
+                {errors?.code && (
+                  <div className="invalid-feedback d-block">
+                    {errors?.code}
+                  </div>
                 )}
               </div>
             </ModalBody>
             <ModalFooter>
-              <Button color="primary" type="submit">
-                {!itemIdToEdit ? "Add" : "Update"}
+              <Button
+                type="submit"
+                className="theme-btn bg-theme"
+                style={{
+                  color: "white",
+                  borderRadius: "8px",
+                  padding: "8px 20px",
+                  border: "none",
+                  fontWeight: "500",
+                }}
+              >
+                {!itemIdToEdit ? "Add Language" : "Update Language"}
               </Button>
-              <Button color="secondary" onClick={handleModalClose}>
+              <Button
+                color="secondary"
+                onClick={handleModalClose}
+                style={{
+                  borderRadius: "8px",
+                  padding: "8px 20px",
+                }}
+              >
                 Cancel
               </Button>
             </ModalFooter>
           </form>
         </Modal>
 
-        {/* DELETE MODAL */}
-        <Modal isOpen={!!deleteId} toggle={() => setDeleteId(null)}>
-          <ModalBody className="mt-3">
-            <h4 className="p-3 text-center">
-              Do you really want to <br /> delete this record?
-            </h4>
-            <div className="d-flex justify-content-center">
-              <img
-                src={deleteimg}
-                alt="Delete Icon"
-                width={"70%"}
-                className="mb-3 m-auto"
-              />
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button color="danger" onClick={confirmDelete}>
-              Delete
-            </Button>
-            <Button color="secondary" onClick={() => setDeleteId(null)}>
-              Cancel
-            </Button>
-          </ModalFooter>
-        </Modal>
+        {/* ========== DELETE CONFIRMATION MODAL ========== */}
+        <DeleteConfirmModal
+          isOpen={deleteModalOpen}
+          toggle={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Language"
+          message="Are you sure you want to delete this language? This action cannot be undone."
+          confirmText="Yes, Delete"
+          cancelText="Cancel"
+          confirmColor="danger"
+        />
       </div>
     </Fragment>
   );

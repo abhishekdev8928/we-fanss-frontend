@@ -43,7 +43,7 @@ const DeleteConfirmModal = ({
 
       <ModalBody className="pt-4">
         <ModalFooter className="border-0 d-flex justify-content-between gap-4 p-0">
-         <Button
+         <button
   color={cancelColor}
   onClick={toggle}
   disabled={loading}
@@ -53,7 +53,7 @@ const DeleteConfirmModal = ({
     height: "48px",
     backgroundColor: "#F5F5F5",
     borderRadius: "8px",
-    padding: "10px 16px",
+    
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -62,15 +62,16 @@ const DeleteConfirmModal = ({
   }}
 >
   {cancelText}
-</Button>
+</button>
 
 
-          <Button
+          <button
   
   onClick={onConfirm}
   disabled={loading}
   style={{
     flex:"1",
+    width:"100%",
     height: "48px",
     backgroundColor: "#BA2526",
     borderRadius: "8px",
@@ -92,7 +93,7 @@ const DeleteConfirmModal = ({
   ) : (
     confirmText
   )}
-</Button>
+</button>
 
         </ModalFooter>
       </ModalBody>

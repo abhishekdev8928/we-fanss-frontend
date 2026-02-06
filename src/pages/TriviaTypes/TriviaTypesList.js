@@ -24,8 +24,8 @@ import {
 } from "react-table";
 import PropTypes from "prop-types";
 import Breadcrumbs from "../../components/Common/Breadcrumb";
-import deleteimg from "../../assets/images/delete.png";
 import { toast } from "react-toastify";
+import { Plus, Search, Pencil, Trash } from "lucide-react";
 import {
   fetchTriviaTypes,
   addTriviaTypes,
@@ -37,9 +37,11 @@ import {
 import PrivilegeAccess from "../../components/protection/PrivilegeAccess";
 import { RESOURCES, OPERATIONS } from "../../constant/privilegeConstants";
 import { usePrivilegeStore } from "../../config/store/privilegeStore";
-import { formatDateTime } from "../../utils/dateTimeHelper"; // ✅ Import utility
+import DeleteConfirmModal from "../../components/Modals/DeleteModal";
 
-// ================= GLOBAL FILTER ==================
+// ========================================
+// GLOBAL FILTER COMPONENT
+// ========================================
 function GlobalFilter({
   preGlobalFilteredRows,
   globalFilter,
@@ -54,16 +56,34 @@ function GlobalFilter({
 
   return (
     <Col md={4}>
-      <Input
-        type="text"
-        className="form-control"
-        placeholder={`Search ${count} records...`}
-        value={value || ""}
-        onChange={(e) => {
-          setValue(e.target.value);
-          onChange(e.target.value);
-        }}
-      />
+      <div style={{ position: "relative" }}>
+        <Input
+          type="text"
+          className="form-control"
+          placeholder="Search record..."
+          value={value || ""}
+          onChange={(e) => {
+            setValue(e.target.value);
+            onChange(e.target.value);
+          }}
+          style={{
+            borderRadius: "8px",
+            border: "1px solid #e0e0e0",
+            padding: "10px 40px 10px 16px",
+          }}
+        />
+        <Search
+          size={18}
+          style={{
+            position: "absolute",
+            right: "12px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#999",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
     </Col>
   );
 }
@@ -72,13 +92,16 @@ function Filter() {
   return null;
 }
 
-// ================= TABLE CONTAINER ==================
+// ========================================
+// TABLE CONTAINER COMPONENT
+// ========================================
 const TableContainer = ({
   columns,
   data,
   customPageSize,
   className,
   isGlobalFilter,
+  onAddClick,
 }) => {
   const {
     getTableProps,
@@ -118,20 +141,27 @@ const TableContainer = ({
 
   return (
     <Fragment>
-      <Row className="mb-2">
+      {/* HEADER ROW - Page Size, Search, Add Button */}
+      <Row className="mb-3">
         <Col md={2}>
           <select
             className="form-select"
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
+            style={{
+              borderRadius: "8px",
+              border: "1px solid #e0e0e0",
+              padding: "10px 16px",
+            }}
           >
-            {[5, 10, 20].map((size) => (
+            {[5, 10, 20, 50].map((size) => (
               <option key={size} value={size}>
                 Show {size}
               </option>
             ))}
           </select>
         </Col>
+
         {isGlobalFilter && (
           <GlobalFilter
             preGlobalFilteredRows={preGlobalFilteredRows}
@@ -139,31 +169,87 @@ const TableContainer = ({
             setGlobalFilter={setGlobalFilter}
           />
         )}
+
+        <Col md={6}>
+          <PrivilegeAccess
+            resource={RESOURCES.TRIVIA_TYPE}
+            action={OPERATIONS.ADD}
+          >
+            <div className="d-flex justify-content-end">
+              <button
+                onClick={onAddClick}
+                className="theme-btn bg-theme"
+               
+              >
+                <Plus size={20} />
+                Add Trivia Type
+              </button>
+            </div>
+          </PrivilegeAccess>
+        </Col>
       </Row>
 
+      {/* TABLE */}
       <div className="table-responsive react-table">
-        <Table bordered hover {...getTableProps()} className={className}>
-          <thead className="table-light table-nowrap">
+        <Table
+          {...getTableProps()}
+          className={className}
+          style={{ borderCollapse: "separate", borderSpacing: "0" }}
+        >
+          <thead style={{ backgroundColor: "#F5F5F5" }}>
             {headerGroups.map((headerGroup) => (
               <tr {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
                 {headerGroup.headers.map((column) => (
-                  <th key={column.id}>
+                  <th
+                    key={column.id}
+                    style={{
+                      padding: "16px",
+                      fontWeight: "600",
+                      fontSize: "14px",
+                      color: "#666",
+                      borderBottom: "none",
+                    }}
+                  >
                     <div {...column.getSortByToggleProps()}>
                       {column.render("Header")}
+                      {column.isSorted ? (
+                        column.isSortedDesc ? (
+                          <i className="bx bx-chevron-down ms-1"></i>
+                        ) : (
+                          <i className="bx bx-chevron-up ms-1"></i>
+                        )
+                      ) : (
+                        ""
+                      )}
                     </div>
                   </th>
                 ))}
               </tr>
             ))}
           </thead>
+
           <tbody {...getTableBodyProps()}>
             {page.length > 0 ? (
               page.map((row) => {
                 prepareRow(row);
                 return (
-                  <tr {...row.getRowProps()} key={row.id}>
+                  <tr
+                    {...row.getRowProps()}
+                    key={row.id}
+                    style={{
+                      borderBottom: "1px solid #f0f0f0",
+                    }}
+                  >
                     {row.cells.map((cell) => (
-                      <td {...cell.getCellProps()} key={cell.column.id}>
+                      <td
+                        {...cell.getCellProps()}
+                        key={cell.column.id}
+                        style={{
+                          padding: "16px",
+                          fontSize: "14px",
+                          color: "#333",
+                        }}
+                      >
                         {cell.render("Cell")}
                       </td>
                     ))}
@@ -171,13 +257,10 @@ const TableContainer = ({
                 );
               })
             ) : (
-              // ✅ No data available message
               <tr>
                 <td colSpan={columns.length} className="text-center py-4">
-                  <div className="text-muted">
-                    <i className="mdi mdi-information-outline me-2"></i>
-                    No data available
-                  </div>
+                  <i className="bx bx-info-circle me-2"></i>
+                  No trivia types found
                 </td>
               </tr>
             )}
@@ -185,57 +268,103 @@ const TableContainer = ({
         </Table>
       </div>
 
-      {/* Pagination */}
-      <Row className="justify-content-md-end justify-content-center align-items-center mt-3">
-        <Col className="col-md-auto">
-          <div className="d-flex gap-1">
-            <Button
-              color="primary"
-              onClick={() => gotoPage(0)}
-              disabled={!canPreviousPage}
-            >
-              {"<<"}
-            </Button>
-            <Button
-              color="primary"
-              onClick={previousPage}
-              disabled={!canPreviousPage}
-            >
-              {"<"}
-            </Button>
-          </div>
-        </Col>
-        <Col className="col-md-auto d-none d-md-block">
-          Page{" "}
-          <strong>
-            {pageIndex + 1} of {pageOptions.length || 1}
-          </strong>
-        </Col>
-        <Col className="col-md-auto">
-          <Input
-            type="number"
-            min={1}
-            max={pageOptions.length || 1}
-            style={{ width: 70 }}
-            value={pageIndex + 1}
-            onChange={(e) => gotoPage(Number(e.target.value) - 1)}
-          />
-        </Col>
-        <Col className="col-md-auto">
-          <div className="d-flex gap-1">
-            <Button color="primary" onClick={nextPage} disabled={!canNextPage}>
-              {">"}
-            </Button>
-            <Button
-              color="primary"
-              onClick={() => gotoPage(pageCount - 1)}
-              disabled={!canNextPage}
-            >
-              {">>"}
-            </Button>
-          </div>
-        </Col>
-      </Row>
+      {/* PAGINATION */}
+      {page.length > 0 && (
+        <Row className="justify-content-end align-items-center mt-4">
+          <Col className="col-auto">
+            <div className="d-flex gap-2 align-items-center">
+              <Button
+                color="light"
+                onClick={() => gotoPage(0)}
+                disabled={!canPreviousPage}
+                size="sm"
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
+                {"<<"}
+              </Button>
+              <Button
+                color="light"
+                onClick={previousPage}
+                disabled={!canPreviousPage}
+                size="sm"
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
+                {"<"}
+              </Button>
+
+              <select
+                className="form-select"
+                value={pageIndex}
+                onChange={(e) => gotoPage(Number(e.target.value))}
+                style={{
+                  width: "140px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
+                {pageOptions.map((pageNum) => (
+                  <option key={pageNum} value={pageNum}>
+                    Page {pageNum + 1} of {pageOptions.length}
+                  </option>
+                ))}
+              </select>
+
+              <Input
+                type="number"
+                min={1}
+                max={pageOptions.length}
+                style={{
+                  width: "70px",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+                value={pageIndex + 1}
+                onChange={(e) => {
+                  const page = e.target.value ? Number(e.target.value) - 1 : 0;
+                  gotoPage(page);
+                }}
+              />
+
+              <Button
+                color="light"
+                onClick={nextPage}
+                disabled={!canNextPage}
+                size="sm"
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
+                {">"}
+              </Button>
+              <Button
+                color="light"
+                onClick={() => gotoPage(pageCount - 1)}
+                disabled={!canNextPage}
+                size="sm"
+                style={{
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                }}
+              >
+                {">>"}
+              </Button>
+            </div>
+          </Col>
+        </Row>
+      )}
     </Fragment>
   );
 };
@@ -246,309 +375,477 @@ TableContainer.propTypes = {
   customPageSize: PropTypes.number,
   className: PropTypes.string,
   isGlobalFilter: PropTypes.bool,
+  onAddClick: PropTypes.func,
 };
 
-// ================= MAIN COMPONENT ==================
+// ========================================
+// MAIN TRIVIA TYPES MASTER LIST COMPONENT
+// ========================================
 const TriviaTypesMasterList = () => {
+  // ========== STATE ==========
   const [category, setcategory] = useState({ name: "" });
   const [rolelist, setcategorylist] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalOpen2, setModalOpen2] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
-  const [itemIdToDelete, setItemIdToDelete] = useState(null);
+  const [itemIdToEdit, setItemIdToEdit] = useState(null);
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(true);
 
   const { hasPermission } = usePrivilegeStore();
 
-  // ================= FETCH DATA =================
+  // ========== HELPER FUNCTIONS ==========
+  const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  // ========== API CALLS ==========
   const fetchData = async () => {
+    setLoading(true);
     try {
       const result = await fetchTriviaTypes();
-      setcategorylist(result.data || []);
+      const data = result?.data || result?.msg || result;
+
+      if (Array.isArray(data)) {
+        setcategorylist(data);
+      } else {
+        setcategorylist([]);
+      }
     } catch (error) {
-      toast.error(error.message || "Failed to load categories.");
+      console.error("Error fetching trivia types:", error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to load trivia types.";
+      toast.error(errorMessage);
+      setcategorylist([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ================= STATUS CHANGE =================
-  const handleChange = async (currentStatus, id) => {
+  const handleStatusChange = async (currentStatus, id) => {
     const newStatus = currentStatus == 1 ? 0 : 1;
+
     try {
       const result = await updateTriviaTypesStatus(id, newStatus);
-      toast.success(result.message || "Status updated successfully");
+      const success = result?.success || result?.status;
+      const message = result?.message || result?.msg;
+
+      if (!success) {
+        toast.error(message || "Failed to update status");
+        return;
+      }
+
+      toast.success(message || "Status updated successfully");
       fetchData();
     } catch (error) {
-      toast.error(error.message || "Failed to update status");
+      console.error("Error updating status:", error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to update status";
+      toast.error(errorMessage);
     }
   };
 
-  // ================= EDIT =================
-  const handleedit = async (id) => {
+  const handleEdit = async (id) => {
     try {
       const result = await getTriviaTypesById(id);
-      const triviaType = result.data;
-      setcategory({ name: triviaType.name });
-      setItemIdToDelete(triviaType._id);
-      setModalOpen(true);
+      const triviaType = result?.data;
+
+      if (triviaType) {
+        setcategory({ name: triviaType?.name || "" });
+        setItemIdToEdit(triviaType?._id);
+        setModalOpen(true);
+      } else {
+        toast.error("Failed to load trivia type data");
+      }
     } catch (error) {
-      toast.error(error.message || "Failed to load category data");
+      console.error("Error fetching trivia type by ID:", error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to load trivia type data";
+      toast.error(errorMessage);
     }
   };
 
-  // ================= DELETE =================
-  const handleDelete = (id) => {
+  const handleDeleteClick = (id) => {
     setDeleteId(id);
-    setModalOpen2(true);
+    setDeleteModalOpen(true);
   };
 
-  const handleClose = () => {
-    setModalOpen2(false);
-    setDeleteId(null);
-  };
-
-  const handleyesno = async () => {
-    if (!deleteId) return toast.error("No ID to delete.");
-    try {
-      const result = await deleteTriviaTypes(deleteId);
-      toast.success(result.message || "Deleted successfully");
-      setModalOpen2(false);
-      fetchData();
-    } catch (error) {
-      toast.error(error.message || "Delete failed");
-    }
-  };
-
-  // ================= ADD / UPDATE =================
-  const handleinput = (e) => {
-    let name = e.target.name;
-    let value = e.target.value;
-    setcategory({ ...category, [name]: value });
-  };
-
-  const handleClose1 = () => {
-    setModalOpen(false);
-    setItemIdToDelete(null);
-    setcategory({ name: "" });
-    setErrors({});
-  };
-
-  const handleaddsubmit = async (e) => {
-    e.preventDefault();
-
-    if (!category.name) {
-      setErrors({ name: "Name is required" });
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) {
+      toast.error("No ID to delete.");
       return;
     }
 
     try {
-      const payload = { name: category.name };
+      const result = await deleteTriviaTypes(deleteId);
+      const success = result?.success || result?.status;
+      const message = result?.message || result?.msg;
+
+      if (success) {
+        toast.success(message || "Trivia type deleted successfully");
+        setDeleteModalOpen(false);
+        setDeleteId(null);
+        fetchData();
+      } else {
+        toast.error(message || "Failed to delete trivia type");
+      }
+    } catch (error) {
+      console.error("Error deleting trivia type:", error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to delete trivia type";
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+    setDeleteId(null);
+  };
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+
+    // Basic validation
+    const newErrors = {};
+    if (!category?.name?.trim()) {
+      newErrors.name = "Name is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    try {
+      const payload = { name: category?.name?.trim() };
       let res_data;
 
-      if (itemIdToDelete) {
-        res_data = await updateTriviaTypes(itemIdToDelete, payload);
+      if (itemIdToEdit) {
+        res_data = await updateTriviaTypes(itemIdToEdit, payload);
       } else {
         res_data = await addTriviaTypes(payload);
       }
 
-      if (!res_data.success) {
-        const errorMsg = res_data.message || res_data.error?.message || "Operation failed";
-        
-        if (errorMsg.toLowerCase().includes("already exist")) {
+      const success = res_data?.success || res_data?.status;
+      const message = res_data?.message || res_data?.msg;
+
+      if (!success) {
+        const errorMsg =
+          message ||
+          res_data?.error?.message ||
+          "Operation failed";
+
+        if (errorMsg?.toLowerCase()?.includes("already exist")) {
           setErrors({ name: errorMsg });
         }
-        
+
         toast.error(errorMsg);
         return;
       }
 
       toast.success(
-        res_data.message || 
-        (itemIdToDelete ? "Updated successfully" : "Added successfully")
+        message ||
+          (itemIdToEdit
+            ? "Trivia type updated successfully"
+            : "Trivia type added successfully")
       );
-      handleClose1();
-      setcategory({ name: "" });
-      setErrors({});
+      handleModalClose();
       fetchData();
     } catch (error) {
-      console.error("Add/Update Category Error:", error);
-      toast.error(error.message || "Something went wrong.");
+      console.error("Add/Update Trivia Type Error:", error);
+
+      // Handle backend validation errors
+      if (error?.response?.data?.error?.details) {
+        const backendErrors = {};
+        error?.response?.data?.error?.details?.forEach((detail) => {
+          backendErrors[detail?.field] = detail?.message;
+        });
+        setErrors(backendErrors);
+      }
+
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Something went wrong.";
+      toast.error(errorMessage);
     }
   };
 
-  // ✅ Check permissions
+  // ========== MODAL HANDLERS ==========
+  const handleModalClose = () => {
+    setModalOpen(false);
+    setItemIdToEdit(null);
+    setcategory({ name: "" });
+    setErrors({});
+  };
+
+  const handleModalOpen = () => {
+    setcategory({ name: "" });
+    setErrors({});
+    setItemIdToEdit(null);
+    setModalOpen(true);
+  };
+
+  const handleInput = (e) => {
+    const name = e?.target?.name;
+    const value = e?.target?.value;
+    setcategory({ ...category, [name]: value });
+    setErrors({ ...errors, [name]: "" });
+  };
+
+  // ========== EFFECTS ==========
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // ========== PERMISSIONS ==========
   const canEdit = hasPermission(RESOURCES.TRIVIA_TYPE, OPERATIONS.EDIT);
   const canDelete = hasPermission(RESOURCES.TRIVIA_TYPE, OPERATIONS.DELETE);
   const hasAnyAction = canEdit || canDelete;
 
+  // ========== TABLE COLUMNS ==========
   const columns = [
-    { Header: "No.", accessor: (_row, i) => i + 1 },
-    { 
-      Header: "Created Date", 
-      accessor: "createdAt",
-      Cell: ({ value }) => formatDateTime(value) // ✅ Using utility
+    {
+      Header: "No",
+      accessor: (_row, i) => i + 1,
+      disableSortBy: true,
     },
-    { Header: "Name", accessor: "name" },
+    {
+      Header: "Created Date",
+      accessor: "createdAt",
+      Cell: ({ value }) => formatDate(value),
+    },
+    {
+      Header: "Trivia Type Name",
+      accessor: "name",
+      Cell: ({ value }) => (
+        <strong style={{ fontWeight: "500" }}>{value}</strong>
+      ),
+    },
     {
       Header: "Status",
       accessor: "status",
       Cell: ({ row }) => {
-        const isActive = row.original.status == 1;
+        const isActive = row?.original?.status == 1;
+
         return (
           <div className="form-check form-switch">
             <input
               type="checkbox"
               className="form-check-input"
-              id={`switch-${row.original._id}`}
+              id={`switch-${row?.original?._id}`}
               checked={isActive}
               onChange={() =>
-                handleChange(row.original.status, row.original._id)
+                handleStatusChange(
+                  row?.original?.status,
+                  row?.original?._id
+                )
               }
+              style={{
+                width: "48px",
+                height: "24px",
+                cursor: "pointer",
+                backgroundColor: isActive ? "#4285F4" : "#ccc",
+                borderColor: isActive ? "#1E90FF" : "#ccc",
+              }}
             />
-            <label
-              className="form-check-label"
-              htmlFor={`switch-${row.original._id}`}
-            >
-              {isActive ? "Active" : "Inactive"}
-            </label>
           </div>
         );
       },
     },
   ];
 
-  // ✅ Add Option column only if user has edit or delete permissions
+  // ========== OPTIONS COLUMN ==========
   if (hasAnyAction) {
     columns.push({
-      Header: "Option",
-      Cell: ({ row }) => (
-        <div className="d-flex gap-2">
-          <PrivilegeAccess
-            resource={RESOURCES.TRIVIA_TYPE}
-            action={OPERATIONS.EDIT}
-          >
-            <Button
-              color="primary"
-              onClick={() => handleedit(row.original._id)}
-              size="sm"
-            >
-              Edit
-            </Button>
-          </PrivilegeAccess>
+      Header: "Options",
+      disableSortBy: true,
+      Cell: ({ row }) => {
+        const triviaType = row?.original;
 
-          <PrivilegeAccess
-            resource={RESOURCES.TRIVIA_TYPE}
-            action={OPERATIONS.DELETE}
-          >
-            <Button
-              color="danger"
-              size="sm"
-              onClick={() => handleDelete(row.original._id)}
+        return (
+          <div className="d-flex gap-2">
+            {/* Edit Button */}
+            <PrivilegeAccess
+              resource={RESOURCES.TRIVIA_TYPE}
+              action={OPERATIONS.EDIT}
             >
-              Delete
-            </Button>
-          </PrivilegeAccess>
-        </div>
-      ),
+              <Button
+                onClick={() => handleEdit(triviaType?._id)}
+                className="theme-edit-btn"
+                style={{
+                  backgroundColor: "#4285F41F",
+                  color: "#1E90FF",
+                  border: "none",
+                  borderRadius: "6px",
+                  width: "40px",
+                  height: "40px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Pencil size={20} strokeWidth="2" />
+              </Button>
+            </PrivilegeAccess>
+
+            {/* Delete Button */}
+            <PrivilegeAccess
+              resource={RESOURCES.TRIVIA_TYPE}
+              action={OPERATIONS.DELETE}
+            >
+              <Button
+                onClick={() => handleDeleteClick(triviaType?._id)}
+                className="theme-delete-btn"
+                style={{
+                  backgroundColor: "#FFE5E5",
+                  color: "#FF5555",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 12px",
+                  width: "40px",
+                  height: "40px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Trash size={20} color="#BA2526" />
+              </Button>
+            </PrivilegeAccess>
+          </div>
+        );
+      },
     });
   }
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
+  // ========== BREADCRUMB ==========
   const breadcrumbItems = [
     { title: "Dashboard", link: "/" },
-    { title: "TriviaTypes Master", link: "#" },
+    { title: "Trivia Types Master", link: "#" },
   ];
 
+  // ========== RENDER ==========
   return (
     <Fragment>
       <div className="page-content">
         <Container fluid>
           <Breadcrumbs
-            title="TriviaTypes Master"
+            title="Trivia Types Master List"
             breadcrumbItems={breadcrumbItems}
           />
 
-           <PrivilegeAccess
-            resource={RESOURCES.TRIVIA_TYPE}
-            action={OPERATIONS.ADD}
+          <Card
+            style={{
+              border: "none",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              borderRadius: "12px",
+            }}
           >
-            <div className="d-flex justify-content-end mb-2">
-              <Button color="primary" onClick={() => setModalOpen(true)}>
-                Add
-              </Button>
-            </div>
-          </PrivilegeAccess>
-
-         
-
-          <Card>
             <CardBody>
-              <TableContainer
-                columns={columns}
-                data={rolelist}
-                customPageSize={10}
-                isGlobalFilter={true}
-              />
+              {loading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  <p className="mt-2">Loading trivia types...</p>
+                </div>
+              ) : (
+                <TableContainer
+                  columns={columns}
+                  data={rolelist}
+                  customPageSize={10}
+                  isGlobalFilter={true}
+                  onAddClick={handleModalOpen}
+                />
+              )}
             </CardBody>
           </Card>
         </Container>
 
-        {/* ADD / EDIT MODAL */}
-        <Modal isOpen={modalOpen} toggle={() => setModalOpen(!modalOpen)}>
-          <ModalHeader toggle={() => setModalOpen(!modalOpen)}>
-            {!itemIdToDelete ? "Add" : "Edit"} Trivia Types
+        {/* ========== ADD / EDIT MODAL ========== */}
+        <Modal isOpen={modalOpen} toggle={handleModalClose}>
+          <ModalHeader toggle={handleModalClose}>
+            {!itemIdToEdit ? "Add" : "Edit"} Trivia Type
           </ModalHeader>
-          <form onSubmit={handleaddsubmit}>
+          <form onSubmit={handleAddSubmit}>
             <ModalBody>
-              <Input
-                type="text"
-                value={category.name || ""}
-                onChange={handleinput}
-                name="name"
-                placeholder="Name"
-                className="mb-2"
-              />
-              {errors.name && (
-                <span className="text-danger">{errors.name}</span>
-              )}
+              <div className="mb-3">
+                <label className="form-label">
+                  Trivia Type Name <span className="text-danger">*</span>
+                </label>
+                <Input
+                  type="text"
+                  value={category?.name || ""}
+                  onChange={handleInput}
+                  name="name"
+                  placeholder="Enter trivia type name"
+                  className={errors?.name ? "is-invalid" : ""}
+                  style={{
+                    borderRadius: "8px",
+                    padding: "10px 16px",
+                  }}
+                />
+                {errors?.name && (
+                  <div className="invalid-feedback d-block">
+                    {errors?.name}
+                  </div>
+                )}
+              </div>
             </ModalBody>
             <ModalFooter>
-              <Button color="primary" type="submit">
-                {!itemIdToDelete ? "Add" : "Update"}
+              <Button
+                type="submit"
+                className="theme-btn bg-theme"
+                style={{
+                  color: "white",
+                  borderRadius: "8px",
+                  padding: "8px 20px",
+                  border: "none",
+                  fontWeight: "500",
+                }}
+              >
+                {!itemIdToEdit ? "Add Trivia Type" : "Update Trivia Type"}
               </Button>
-              <Button color="secondary" onClick={() => setModalOpen(false)}>
+              <Button
+                color="secondary"
+                onClick={handleModalClose}
+                style={{
+                  borderRadius: "8px",
+                  padding: "8px 20px",
+                }}
+              >
                 Cancel
               </Button>
             </ModalFooter>
           </form>
         </Modal>
 
-        {/* DELETE MODAL */}
-        <Modal isOpen={modalOpen2} toggle={() => setModalOpen2(false)}>
-          <ModalBody className="mt-3">
-            <h4 className="p-3 text-center">
-              Do you really want to <br /> delete this record?
-            </h4>
-            <div className="d-flex justify-content-center">
-              <img
-                src={deleteimg}
-                alt="Delete Icon"
-                width={"70%"}
-                className="mb-3 m-auto"
-              />
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button color="danger" onClick={handleyesno}>
-              Delete
-            </Button>
-            <Button color="secondary" onClick={() => handleClose()}>
-              Cancel
-            </Button>
-          </ModalFooter>
-        </Modal>
+        {/* ========== DELETE CONFIRMATION MODAL ========== */}
+        <DeleteConfirmModal
+          isOpen={deleteModalOpen}
+          toggle={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Trivia Type"
+          message="Are you sure you want to delete this trivia type? This action cannot be undone."
+          confirmText="Yes, Delete"
+          cancelText="Cancel"
+          confirmColor="danger"
+        />
       </div>
     </Fragment>
   );
