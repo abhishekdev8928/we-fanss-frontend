@@ -39,6 +39,8 @@ import {
 } from "../../api/referencesApi";
 import { createReferenceSchema, updateReferenceSchema } from "../../schemas/reference.schema";
 import { validateForm } from "../../utils/validateForm";
+import FixedSectionTab from "../Section/FixedSectionTab";
+import { Link } from "react-router-dom";
 
 // 🔍 Global Search Filter
 function GlobalFilter({
@@ -585,8 +587,12 @@ const ReferencesList = () => {
   return (
     <Fragment>
       <div className="page-content">
+
+
+
+        <FixedSectionTab activeTabId="references"  />
         <Container fluid>
-          <Breadcrumbs title="References" breadcrumbItems={breadcrumbItems} />
+          {/* <Breadcrumbs title="References" breadcrumbItems={breadcrumbItems} /> */}
           <Card>
             <CardBody>
               <div className="d-flex justify-content-between align-items-center mb-3">

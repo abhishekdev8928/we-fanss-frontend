@@ -33,6 +33,7 @@ import {
 } from "../../api/seriesApi";
 import { getCelebratyById } from "../../api/celebratyApi";
 import { useNavigate } from "react-router-dom";
+import FixedSectionTab from "./FixedSectionTab";
 
 function GlobalFilter({
   preGlobalFilteredRows,
@@ -368,8 +369,9 @@ const SeriesList = () => {
   return (
     <Fragment>
       <div className="page-content">
+        <FixedSectionTab activeTabId="series" />
         <Container fluid>
-          <Breadcrumbs title="Series" breadcrumbItems={breadcrumbItems} />
+          {/* <Breadcrumbs title="Series" breadcrumbItems={breadcrumbItems} /> */}
           <Card>
             <CardBody>
              <div className="d-flex justify-content-between align-items-center mb-3">

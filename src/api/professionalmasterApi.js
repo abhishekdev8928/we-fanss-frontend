@@ -77,3 +77,16 @@ export const deleteprofessionalmaster = async (id) => {
     throw error;
   }
 };
+
+
+
+
+export const getProfessionsByCelebrityId = async (celebrityId) => {
+  try {
+    const response = await httpClient.get(`/professionalmaster/celebrity/${celebrityId}/professions`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching professions by celebrity ID:", error);
+    throw error;
+  }
+};

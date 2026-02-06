@@ -43,6 +43,7 @@ import {
   updateRelatedPersonalitySchema,
 } from "../../schemas/relatedPersonality.schema";
 import { validateForm } from "../../utils/validateForm";
+import FixedSectionTab from "../Section/FixedSectionTab";
 
 // 🔍 Global Search Filter
 function GlobalFilter({
@@ -603,11 +604,13 @@ const RelatedPersonalitiesList = () => {
   return (
     <Fragment>
       <div className="page-content">
+
+        <FixedSectionTab activeTabId="related"  />
         <Container fluid>
-          <Breadcrumbs
-            title="Related Personalities"
+          {/* <Breadcrumbs
+            // title="Related Personalities"
             breadcrumbItems={breadcrumbItems}
-          />
+          /> */}
           <Card>
             <CardBody>
               <div className="d-flex justify-content-between align-items-center mb-3">

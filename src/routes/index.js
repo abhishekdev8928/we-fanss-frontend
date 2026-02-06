@@ -90,6 +90,8 @@ import AddCelebrityForm from "../pages/Celebraty/AddCelebrity";
 import UpdateCelebrityForm from "../pages/Celebraty/UpdateCelebrity";
 import UserManagementList from "../pages/UserManagement/UserManagementList";
 import RelatedPersonalitiesList from "../pages/RelatedPersonality/RelatedPersonalitiesList";
+import ProfessionSectionTab from "../pages/Section/ProfessionSectionTab";
+
 
 /* ================= ROUTER ================= */
 
@@ -160,7 +162,7 @@ const router = createBrowserRouter([
       { path: "genremaster-list", element: <GenreMasterList /> },
 
       { path: "section-template-view/:celebId/:id", element: <Template /> },
-      { path: "section-template-list/:celebId/:id", element: <TemplateList /> },
+      { path: "section-template-list/:celebId", element: <TemplateList /> },
       {
         path: "section-template-edit/:celebId/:sectionId/:dataId",
         element: <TemplateEdit />,
@@ -176,6 +178,13 @@ const router = createBrowserRouter([
       { path: "sectionmaster-list", element: <SectionMasterList /> },
       { path: "add-sectionmaster", element: <AddSectionMaster /> },
       { path: "update-sectionmaster/:id", element: <UpdateSectionMaster /> },
+
+      {
+        path:"section-list",
+        element:<ProfessionSectionTab />
+
+      },
+     
 
       {
         path: "references-list/:celebrityId",

@@ -23,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { useParams } from "react-router-dom";
 
 import { useDropzone } from "react-dropzone";
+import FixedSectionTab from "./FixedSectionTab";
 
 const AddMoviev = () => {
   const [breadcrumbItems] = useState([
@@ -216,6 +217,8 @@ const AddMoviev = () => {
 
   return (
     <div className="page-content">
+
+      
       <Container fluid>
         <Breadcrumbs title="ADD Movie" breadcrumbItems={breadcrumbItems} />
         <Row>

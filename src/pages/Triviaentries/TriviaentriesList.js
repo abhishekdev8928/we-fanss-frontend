@@ -35,6 +35,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import { getCelebratyById } from "../../api/celebratyApi";
+import FixedSectionTab from "../Section/FixedSectionTab";
 // 🔍 Global Search Filter
 function GlobalFilter({
   preGlobalFilteredRows,
@@ -414,11 +415,13 @@ const TriviaentriesList = () => {
   return (
     <Fragment>
       <div className="page-content">
+
+        <FixedSectionTab activeTabId="trivia"  />
         <Container fluid>
-          <Breadcrumbs
+          {/* <Breadcrumbs
             title="Trivia Entries"
             breadcrumbItems={breadcrumbItems}
-          />
+          /> */}
           <Card>
             <CardBody>
               <div className="d-flex justify-content-between align-items-center mb-3">

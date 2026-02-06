@@ -1,0 +1,41 @@
+:root {
+  --theme-color: #4285F4;
+  --active-color:#34C759;
+}
+
+.text-theme {
+  color: var(--theme-color);
+  
+}
+
+.bg-theme {
+  background-color: var(--theme-color);
+}
+
+
+.rounded-8 {
+  border-radius: 8px;
+}
+
+.theme-btn {
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  text-decoration: none; /* Link underline remove */
+}
+
+.theme-btn:hover {
+  background-color: #1971ff; /* lighter on hover */
+  color: #ffffff;
+}
+
+.modal-header {
+  position: relative;
+}
+
+.modal-header .btn-close {
+  position: absolute;
+  top: 0px;
+  right: 4px;
+  margin: 0;
+  padding: 0.5rem;
+}
+

@@ -33,6 +33,7 @@ import {
 } from "../../api/movievApi";
 import { getCelebratyById } from "../../api/celebratyApi";
 import { useNavigate } from "react-router-dom";
+import FixedSectionTab from "./FixedSectionTab";
 
 function GlobalFilter({
   preGlobalFilteredRows,
@@ -368,8 +369,9 @@ const MovievList = () => {
   return (
     <Fragment>
       <div className="page-content">
+        <FixedSectionTab activeTabId="movie" />
         <Container fluid>
-          <Breadcrumbs title="Movies" breadcrumbItems={breadcrumbItems} />
+          {/* <Breadcrumbs title="Movies" breadcrumbItems={breadcrumbItems} /> */}
           <Card>
             <CardBody>
               <div className="d-flex justify-content-between align-items-center mb-3">

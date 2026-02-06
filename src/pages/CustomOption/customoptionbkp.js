@@ -11,6 +11,7 @@ import {
   Modal,
   ModalBody,
   ModalFooter,
+  Spinner,
 } from "reactstrap";
 import {
   useTable,
@@ -27,13 +28,13 @@ import { Link, useParams } from "react-router-dom";
 import deleteimg from "../../assets/images/delete.png";
 import { toast } from "react-toastify";
 import {
-  gettimelines,
-  deletetimeline,
-  updatetimelineStatus,
-} from "../../api/timelineApi";
+  getcustomoption,
+  deletecustomoption,
+  updatecustomoptionStatus,
+} from "../../api/customoptionApi";
 import { useNavigate } from "react-router-dom";
 import { getCelebratyById } from "../../api/celebratyApi";
-import FixedSectionTab from "../Section/FixedSectionTab";
+
 // 🔎 Global filter component
 function GlobalFilter({
   preGlobalFilteredRows,
@@ -135,7 +136,6 @@ const TableContainer = ({
             setGlobalFilter={setGlobalFilter}
           />
         )}
-       
       </Row>
 
       <div className="table-responsive react-table">
@@ -154,23 +154,36 @@ const TableContainer = ({
             ))}
           </thead>
           <tbody {...getTableBodyProps()}>
-            {page.map((row) => {
-              prepareRow(row);
-              return (
-                <tr {...row.getRowProps()} key={row.id}>
-                  {row.cells.map((cell) => (
-                    <td {...cell.getCellProps()} key={cell.column.id}>
-                      {cell.render("Cell")}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
+            {page.length > 0 ? (
+              page.map((row) => {
+                prepareRow(row);
+                return (
+                  <tr {...row.getRowProps()} key={row.id}>
+                    {row.cells.map((cell) => (
+                      <td {...cell.getCellProps()} key={cell.column.id}>
+                        {cell.render("Cell")}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-4">
+                  <div className="text-muted">
+                    <i className="mdi mdi-information-outline me-2"></i>
+                    No data available
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </Table>
       </div>
 
-      <Row className="justify-content-md-end justify-content-center align-items-center mt-3">
+      {/* Pagination */}
+      {page.length > 0 && (
+        <Row className="justify-content-md-end justify-content-center align-items-center mt-3">
         <Col className="col-md-auto">
           <div className="d-flex gap-1">
             <Button
@@ -220,6 +233,7 @@ const TableContainer = ({
           </div>
         </Col>
       </Row>
+      )}
     </Fragment>
   );
 };
@@ -233,15 +247,16 @@ TableContainer.propTypes = {
   setModalOpen: PropTypes.func.isRequired,
 };
 
-// ✅ Corrected Component Name (Uppercase)
-const TimelineList = () => {
+// ✅ Main Component
+const CustomOptionList = () => {
   const { id } = useParams();
-  const celebrityId = id; // rename for clarity
-  const [timelineList, setTimelineList] = useState([]);
+  const celebrityId = id;
+  const [customoptionList, setCustomOptionList] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalOpen2, setModalOpen2] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [celebrityName, setCelebrityName] = useState("");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   // 👇 Open modal and set ID
@@ -261,14 +276,14 @@ const TimelineList = () => {
     const newStatus = currentStatus == 1 ? 0 : 1;
 
     try {
-      const res_data = await updatetimelineStatus(id, newStatus);
+      const res_data = await updatecustomoptionStatus(id, newStatus);
 
       if (res_data.success === false) {
-        toast.error(res_data.msg || "Failed to update status");
+        toast.error(res_data.message || res_data.msg || "Failed to update status");
         return;
       }
 
-      toast.success("Timeline Master status updated successfully");
+      toast.success("CustomOption status updated successfully");
       fetchData();
     } catch (error) {
       console.error("Error updating status:", error);
@@ -279,11 +294,31 @@ const TimelineList = () => {
   // Fetch data
   const fetchData = async () => {
     try {
-      const result = await gettimelines(celebrityId);
-      setTimelineList(result.msg || []);
+      setLoading(true);
+      const result = await getcustomoption(celebrityId);
+      
+      // Handle the nested data structure from API response
+      if (result.success && result.data) {
+        // Check if data is an array
+        if (Array.isArray(result.data)) {
+          setCustomOptionList(result.data);
+        } else if (result.data.data && Array.isArray(result.data.data)) {
+          // If data is nested inside another data property
+          setCustomOptionList(result.data.data);
+        } else {
+          setCustomOptionList([]);
+        }
+      } else {
+        setCustomOptionList([]);
+      }
+
+      console.log("Fetched data:", result);
     } catch (error) {
-      console.error("Error fetching Timeline:", error);
-      toast.error("Failed to load Timeline data.");
+      console.error("Error fetching CustomOption:", error);
+      toast.error("Failed to load CustomOption data.");
+      setCustomOptionList([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -295,29 +330,37 @@ const TimelineList = () => {
     }
 
     try {
-      const data = await deletetimeline(deleteId);
+      const data = await deletecustomoption(deleteId);
 
       if (data.success === false) {
-        toast.error(data.msg || "Failed to delete Timeline");
+        toast.error(data.message || data.msg || "Failed to delete CustomOption");
         return;
       }
 
-      toast.success("Timeline  deleted successfully");
-      setTimelineList((prevItems) =>
-        prevItems.filter((row) => row._id !== deleteId)
-      );
+      toast.success(data.message || "CustomOption deleted successfully");
+      
+      // Close modal first
       setModalOpen2(false);
       setDeleteId(null);
+      
+      // Refresh the entire list from server to get updated data
+      await fetchData();
+      
     } catch (error) {
-      console.error("Error deleting  Timeline:", error);
+      console.error("Error deleting CustomOption:", error);
       toast.error("Something went wrong.");
+      setModalOpen2(false);
+      setDeleteId(null);
     }
   };
+
   const fetchCelebrityName = async () => {
     try {
       const response = await getCelebratyById(celebrityId);
       if (response.msg?.name) {
         setCelebrityName(response.msg.name);
+      } else if (response.data?.name) {
+        setCelebrityName(response.data.name);
       } else {
         console.warn("No name found in response:", response);
       }
@@ -337,7 +380,18 @@ const TimelineList = () => {
         Header: "No.",
         accessor: (_row, i) => i + 1,
       },
-      { Header: "Created Date", accessor: "createdAt" },
+      { 
+        Header: "Created Date", 
+        accessor: "createdAt",
+        Cell: ({ value }) => {
+          if (!value) return "-";
+          return new Date(value).toLocaleDateString('en-IN', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          });
+        }
+      },
       { Header: "Title", accessor: "title" },
       {
         Header: "Status",
@@ -370,7 +424,7 @@ const TimelineList = () => {
         Cell: ({ row }) => (
           <div className="d-flex gap-2">
             <Link
-              to={`/dashboard/update-timeline/${row.original._id}`}
+              to={`/dashboard/update-customoption/${row.original._id}`}
               className="btn btn-primary btn-sm"
             >
               Edit
@@ -386,34 +440,32 @@ const TimelineList = () => {
         ),
       },
     ],
-    [timelineList]
+    []
   );
 
   const breadcrumbItems = [
     { title: "Dashboard", link: "/" },
-    { title: "Timeline", link: "#" },
+    { title: "CustomOption", link: "#" },
   ];
 
   return (
     <Fragment>
       <div className="page-content">
-
-              <FixedSectionTab activeTabId="timeline"  />
         <Container fluid>
-          <Breadcrumbs title="Timeline" breadcrumbItems={breadcrumbItems} />
+          <Breadcrumbs title="CustomOption" breadcrumbItems={breadcrumbItems} />
           <Card>
             <CardBody>
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h4 className="mb-0">
-                  Timeline List{" "}
+                  CustomOption List{" "}
                   {celebrityName && (
                     <span className="text-muted">— {celebrityName}</span>
                   )}
                 </h4>
 
                 <div className="d-flex gap-2">
-                  <Link to={`/dashboard/add-timeline/${id}`} className="btn btn-primary">
-                    + Add Timeline
+                  <Link to={`/dashboard/add-customoption/${id}`} className="btn btn-primary">
+                    + Add CustomOption
                   </Link>
                   <Button
                     color="secondary"
@@ -423,14 +475,23 @@ const TimelineList = () => {
                   </Button>
                 </div>
               </div>
-              <TableContainer
-                columns={columns}
-                data={timelineList}
-                customPageSize={10}
-                isGlobalFilter={true}
-                setModalOpen={setModalOpen}
-                id={id} // <-- pass it here
-              />
+
+              {/* Loading State */}
+              {loading ? (
+                <div className="text-center py-5">
+                  <Spinner color="primary" />
+                  <p className="mt-2">Loading data...</p>
+                </div>
+              ) : (
+                <TableContainer
+                  columns={columns}
+                  data={customoptionList}
+                  customPageSize={10}
+                  isGlobalFilter={true}
+                  setModalOpen={setModalOpen}
+                  id={id}
+                />
+              )}
             </CardBody>
           </Card>
         </Container>
@@ -439,7 +500,7 @@ const TimelineList = () => {
         <Modal isOpen={modalOpen2} toggle={() => setModalOpen2(false)}>
           <ModalBody className="mt-3">
             <h4 className="p-3 text-center">
-              Do you really want to <br /> delete the record?
+              Do you really want to <br /> delete this record?
             </h4>
             <div className="d-flex justify-content-center">
               <img
@@ -464,4 +525,4 @@ const TimelineList = () => {
   );
 };
 
-export default TimelineList;
+export default CustomOptionList;
